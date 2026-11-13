@@ -1,0 +1,15 @@
+# Kolomtoewijzing voor de bron-CSV.
+# Links: veld in dit systeem. Rechts: kolomkop in de CSV.
+# Pas alleen de rechterkant aan als de export andere kolomnamen heeft.
+delimiter: ";"
+encoding: utf-8-sig
+columns:
+  name: Bedrijfsnaam
+  kvk_number: KvK-nummer
+  legal_form: Rechtsvorm
+  address: Adres
+  city: Plaats
+  sector: Sector
+  website: Website
+  phone: Telefoon
+  email: E-mail
