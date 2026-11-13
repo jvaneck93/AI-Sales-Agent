@@ -24,7 +24,7 @@ def _company(session, kvk: str) -> Company | None:
 def test_sample_csv_report(session):
     report = import_csv(session, SAMPLE_CSV, load_mapping(MAPPING))
 
-    assert report.total == 13
+    assert report.total == 14
     assert report.created == 10
     assert report.updated == 0
 

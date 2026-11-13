@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales AI Agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1f2b; --muted: #5d6676; --line: #dfe3ea;
+    --accent: #1f5fbf; --ok: #17794a; --ok-bg: #e3f4ea; --no: #b3261e; --no-bg: #fbe9e7;
+    --warn-bg: #fff4d6; --warn: #7a5a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e8ebf1; --muted: #9aa4b5; --line: #2c3340;
+      --accent: #7fb0ff; --ok: #6fd6a0; --ok-bg: #173526; --no: #ff9a8f; --no-bg: #3d1c19;
+      --warn-bg: #3a3010; --warn: #f0d078;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; white-space: nowrap; }
+  .ok { background: var(--ok-bg); color: var(--ok); }
+  .no { background: var(--no-bg); color: var(--no); }
+  .warn { background: var(--warn-bg); color: var(--warn); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
+    margin-bottom: 16px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 24px; line-height: 1.2; }
+  .notice { border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
+  pre { margin: 0; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+  details ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .grid .card { margin: 0; }
+  form { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px; width: 100%; }
+  button { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 7px;
+    padding: 8px 14px; background: var(--accent); color: var(--card); align-self: flex-start; }
+  button.plain { background: transparent; color: var(--no); border: 1px solid var(--line);
+    padding: 3px 9px; font-size: 13px; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sales AI Agent</h1>
+    <span class="muted">Import en compliance-poort</span>
+    {% if dry_run %}<span class="badge ok">DRY_RUN aan: er wordt niet gebeld</span>
+    {% else %}<span class="badge no">DRY_RUN uit</span>{% endif %}
+  </header>
+
+  {% if error %}<div class="notice no">{{ error }}</div>{% endif %}
+  {% if message %}<div class="notice ok">{{ message }}</div>{% endif %}
+  {% if report %}<div class="card"><pre>{{ report }}</pre></div>{% endif %}
+
+  <div class="stats">
+    <div class="stat"><b>{{ stats.companies }}</b><span class="muted">bedrijven</span></div>
+    <div class="stat"><b>{{ stats.allowed }}</b><span class="muted">mogen gebeld worden</span></div>
+    <div class="stat"><b>{{ stats.denied }}</b><span class="muted">niet bellen</span></div>
+    <div class="stat"><b>{{ stats.contacts }}</b><span class="muted">contactpersonen</span></div>
+    <div class="stat"><b>{{ stats.vehicles }}</b><span class="muted">voertuigen</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Bedrijven</h2>
+    {% if not rows %}
+      <p class="muted">Nog geen bedrijven. Laad de voorbeelddata of importeer een CSV.</p>
+      <form method="post" action="voorbeelddata"><button>Voorbeelddata laden</button></form>
+    {% else %}
+    <div class="scroll">
+    <table>
+      <thead><tr><th>KvK</th><th>Bedrijf</th><th>Rechtsvorm</th><th>Bellen</th><th>Reden</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        {% set c = row.company %}
+        <tr>
+          <td>{{ c.kvk_number }}</td>
+          <td>
+            <strong>{{ c.name }}</strong>
+            <div class="muted small">{{ c.city or "plaats onbekend" }}{% if c.sector %}, {{ c.sector }}{% endif %}
+              · {{ c.phone or "geen telefoonnummer" }} · status: {{ c.status.value }}</div>
+            {% if c.contacts or c.vehicles %}
+            <details>
+              <summary>{{ c.contacts|length }} contactpersonen, {{ c.vehicles|length }} voertuigen{% if row.next_end_date %}, eerste contract loopt af op {{ row.next_end_date.isoformat() }}{% endif %}</summary>
+              <ul>
+                {% for p in c.contacts %}
+                <li>{{ p.name or "naam onbekend" }}{% if p.role %} ({{ p.role }}){% endif %}{% if p.phone %} · {{ p.phone }}{% endif %}{% if p.email %} · {{ p.email }}{% endif %}</li>
+                {% endfor %}
+                {% for v in c.vehicles %}
+                <li>{{ v.license_plate }} · {{ v.make or "" }} {{ v.model or "" }}{% if v.build_year %} ({{ v.build_year }}){% endif %}{% if v.ownership %} · {{ v.ownership }}{% endif %}{% if v.lease_company %} via {{ v.lease_company }}{% endif %}{% if v.contract_end_date %} · tot {{ v.contract_end_date.isoformat() }}{% endif %}</li>
+                {% endfor %}
+              </ul>
+            </details>
+            {% endif %}
+          </td>
+          <td>{{ c.legal_form.value }}</td>
+          <td>{% if row.decision.allowed %}<span class="badge ok">ja</span>{% else %}<span class="badge no">nee</span>{% endif %}</td>
+          <td class="small">{{ row.decision.reason }}{% if row.decision.allowed and not c.phone %}<br><span class="badge warn">geen bruikbaar telefoonnummer</span>{% endif %}</td>
+          <td>
+            <form method="post" action="verwijder" onsubmit="return confirm('Dit bedrijf met alle gekoppelde gegevens verwijderen?')">
+              <input type="hidden" name="kvk" value="{{ c.kvk_number }}">
+              <button class="plain">Verwijder</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Bedrijven importeren</h2>
+      <p class="muted small">CSV met puntkomma's, kolommen volgens config/import_mapping.yaml.</p>
+      <form method="post" action="import" enctype="multipart/form-data">
+        <input type="file" name="bestand" accept=".csv" required>
+        <button>Importeren</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Voertuigen importeren</h2>
+      <p class="muted small">Aparte CSV, één voertuig per regel, gekoppeld op KvK-nummer.</p>
+      <form method="post" action="import-voertuigen" enctype="multipart/form-data">
+        <input type="file" name="bestand" accept=".csv" required>
+        <button>Importeren</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Toestemming vastleggen</h2>
+      <form method="post" action="optin">
+        <label>KvK-nummer <input name="kvk" required inputmode="numeric"></label>
+        <label>Bron <input name="bron" placeholder="bijvoorbeeld beursformulier"></label>
+        <label>Datum <input type="date" name="datum" value="{{ today }}"></label>
+        <label>Bewijs <input name="bewijs" placeholder="verwijzing naar het bewijs"></label>
+        <button>Vastleggen</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Verzet registreren</h2>
+      <p class="muted small">Op KvK-nummer, telefoonnummer of beide. Niet terug te draaien via deze pagina.</p>
+      <form method="post" action="verzet">
+        <label>KvK-nummer <input name="kvk" inputmode="numeric"></label>
+        <label>Telefoonnummer <input name="telefoon"></label>
+        <label>Bron <input name="bron" placeholder="bijvoorbeeld telefoongesprek"></label>
+        <button>Registreren</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Verzetregister</h2>
+      {% if not objections %}<p class="muted">Leeg.</p>{% else %}
+      <ul class="small" style="margin:0;padding-left:18px">
+        {% for o in objections %}
+        <li>{{ o.date.isoformat() }} · KvK {{ o.kvk_number or "-" }} · tel. {{ o.phone or "-" }} · bron: {{ o.source }}</li>
+        {% endfor %}
+      </ul>{% endif %}
+    </div>
+    <div class="card">
+      <h2>Bewaartermijnen</h2>
+      <p class="muted small">Wist gespreksverslagen ouder dan {{ retention_transcript_days }} dagen en contactpersonen van afgesloten bedrijven die {{ retention_contact_days }} dagen niet zijn gewijzigd.</p>
+      <form method="post" action="opschonen"><button class="secondary">Nu opschonen</button></form>
+      <form method="post" action="voorbeelddata" style="margin-top:10px"><button class="secondary">Voorbeelddata (opnieuw) laden</button></form>
+    </div>
+  </div>
+</main>
+</body>
+</html>

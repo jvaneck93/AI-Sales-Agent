@@ -7,7 +7,7 @@ identifiers are English.
 from datetime import UTC, date, datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -108,6 +108,7 @@ class Contact(Base):
 
 class Vehicle(Base):
     __tablename__ = "vehicle"
+    __table_args__ = (UniqueConstraint("license_plate", name="uq_vehicle_license_plate"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("company.id", ondelete="CASCADE"))

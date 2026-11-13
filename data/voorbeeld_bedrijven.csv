@@ -1,14 +1,15 @@
-Bedrijfsnaam;KvK-nummer;Rechtsvorm;Adres;Plaats;Sector;Website;Telefoon;E-mail
-Voorbeeld Installatietechniek B.V.;10000001;B.V.;Industrieweg 1;Zwolle;Installatietechniek;www.voorbeeld-installatie.example;038-1234567;info@voorbeeld-installatie.example
-Demo Bouwgroep N.V.;10000002;Naamloze Vennootschap;Havenkade 12;Rotterdam;Bouw;https://demo-bouwgroep.example;+31 10 123 45 67;info@demo-bouwgroep.example
-Stichting Testzorg;10000003;Stichting;Parklaan 5;Utrecht;Zorg;;030 1234567;contact@testzorg.example
-Bakkerij Fictief;10000004;Eenmanszaak;Dorpsstraat 8;Epe;Detailhandel;;0578-123456;
-Schildersbedrijf Voorbeeld V.O.F.;10000005;vof;Ambachtsweg 3;Apeldoorn;Bouw;;055 1234567;info@schilder-voorbeeld.example
-Coöperatie Proefboeren U.A.;10000006;Coöperatie U.A.;Polderweg 20;Dronten;Agrarisch;proefboeren.example;0321-123456;info@proefboeren.example
-Onbekend Transport;10000007;;Transportweg 9;Venlo;Transport;;077-1234567;
-;10000008;B.V.;Lege Naamstraat 1;Breda;Handel;;076-1234567;
-Fout KvK B.V.;1234;B.V.;Kerkstraat 2;Leiden;ICT;;071-1234567;
-Demo Bouwgroep N.V. (dubbel);10000002;N.V.;Havenkade 12;Rotterdam;Bouw;;010-1234567;
-Slecht Nummer B.V.;10000009;BV;Singel 4;Amsterdam;Zakelijke dienstverlening;geen-website;12345;geen-email
-Testvereniging Sportief;10000010;Vereniging;Sportlaan 7;Arnhem;Sport;;026-1234567;info@sportief.example
-Vreemde Vorm Ltd;10000011;Limited;Kanaalweg 6;Maastricht;Handel;;043-1234567;
+Bedrijfsnaam;KvK-nummer;Rechtsvorm;Adres;Plaats;Sector;Website;Telefoon;E-mail;Contactpersoon;Functie;Telefoon contactpersoon;E-mail contactpersoon
+Voorbeeld Installatietechniek B.V.;10000001;B.V.;Industrieweg 1;Zwolle;Installatietechniek;www.voorbeeld-installatie.example;038-1234567;info@voorbeeld-installatie.example;Testpersoon Een;Wagenparkbeheerder;038-1234568;wagenpark@voorbeeld-installatie.example
+Demo Bouwgroep N.V.;10000002;Naamloze Vennootschap;Havenkade 12;Rotterdam;Bouw;https://demo-bouwgroep.example;+31 10 123 45 67;info@demo-bouwgroep.example;Testpersoon Twee;Financieel directeur;010-1234568;fd@demo-bouwgroep.example
+Stichting Testzorg;10000003;Stichting;Parklaan 5;Utrecht;Zorg;;030 1234567;contact@testzorg.example;;;;
+Bakkerij Fictief;10000004;Eenmanszaak;Dorpsstraat 8;Epe;Detailhandel;;0578-123456;;;;;
+Schildersbedrijf Voorbeeld V.O.F.;10000005;vof;Ambachtsweg 3;Apeldoorn;Bouw;;055 1234567;info@schilder-voorbeeld.example;;;;
+Coöperatie Proefboeren U.A.;10000006;Coöperatie U.A.;Polderweg 20;Dronten;Agrarisch;proefboeren.example;0321-123456;info@proefboeren.example;;Inkoper;;inkoop@proefboeren.example
+Onbekend Transport;10000007;;Transportweg 9;Venlo;Transport;;077-1234567;;;;;
+;10000008;B.V.;Lege Naamstraat 1;Breda;Handel;;076-1234567;;;;;
+Fout KvK B.V.;1234;B.V.;Kerkstraat 2;Leiden;ICT;;071-1234567;;;;;
+Demo Bouwgroep N.V. (dubbel);10000002;N.V.;Havenkade 12;Rotterdam;Bouw;;010-1234567;;;;;
+Slecht Nummer B.V.;10000009;BV;Singel 4;Amsterdam;Zakelijke dienstverlening;geen-website;12345;geen-email;;;;
+Testvereniging Sportief;10000010;Vereniging;Sportlaan 7;Arnhem;Sport;;026-1234567;info@sportief.example;;;;
+Vreemde Vorm Ltd;10000011;Limited;Kanaalweg 6;Maastricht;Handel;;043-1234567;;;;;
+Voorbeeld Installatietechniek B.V.;10000001;B.V.;;;;;;;Testpersoon Drie;Directeur;;directie@voorbeeld-installatie.example

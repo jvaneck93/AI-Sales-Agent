@@ -30,3 +30,16 @@ def make_engine(url: str | None = None) -> Engine:
 
 def make_session_factory(engine: Engine | None = None) -> sessionmaker[Session]:
     return sessionmaker(bind=engine or make_engine(), expire_on_commit=False)
+
+
+def upgrade_database(url: str | None = None) -> None:
+    """Create the database or migrate it to the latest version."""
+    from alembic import command
+    from alembic.config import Config
+
+    root = Path(__file__).resolve().parents[2]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    if url:
+        config.set_main_option("sqlalchemy.url", url)
+    command.upgrade(config, "head")

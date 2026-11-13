@@ -13,3 +13,20 @@ columns:
   website: Website
   phone: Telefoon
   email: E-mail
+  # Optioneel: één contactpersoon per regel. Meerdere contactpersonen bij één
+  # bedrijf mogen als extra regels met hetzelfde KvK-nummer.
+  contact_name: Contactpersoon
+  contact_role: Functie
+  contact_phone: Telefoon contactpersoon
+  contact_email: E-mail contactpersoon
+
+# Kolomtoewijzing voor de aparte voertuigen-CSV (één voertuig per regel).
+vehicle_columns:
+  kvk_number: KvK-nummer
+  license_plate: Kenteken
+  make: Merk
+  model: Model
+  build_year: Bouwjaar
+  ownership: Koop of lease
+  lease_company: Leasemaatschappij
+  contract_end_date: Einddatum contract

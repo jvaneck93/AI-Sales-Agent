@@ -20,7 +20,9 @@ app = typer.Typer(help="Sales AI Agent: prospecting voor zakelijke lease.", no_a
 db_app = typer.Typer(help="Databasebeheer.", no_args_is_help=True)
 compliance_app = typer.Typer(help="Compliance-poort en registers.", no_args_is_help=True)
 app.add_typer(db_app, name="db")
+privacy_app = typer.Typer(help="Verwijderen en bewaartermijnen.", no_args_is_help=True)
 app.add_typer(compliance_app, name="compliance")
+app.add_typer(privacy_app, name="privacy")
 
 
 def _fail(message: str) -> None:
@@ -31,12 +33,9 @@ def _fail(message: str) -> None:
 @db_app.command("init")
 def db_init() -> None:
     """Maak de database aan of werk hem bij naar de nieuwste versie."""
-    from alembic import command
-    from alembic.config import Config
+    from salesagent.db import upgrade_database
 
-    config = Config(str(PROJECT_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(PROJECT_ROOT / "migrations"))
-    command.upgrade(config, "head")
+    upgrade_database()
     typer.echo(f"Database is bijgewerkt: {get_settings().database_url}")
 
 
@@ -126,6 +125,111 @@ def compliance_objection(
             _fail(str(exc))
         session.commit()
     typer.echo("Verzet geregistreerd. Dit bedrijf of nummer wordt niet meer gebeld.")
+
+
+@app.command("import-voertuigen")
+def import_vehicles_command(
+    csv_file: Path = typer.Argument(..., exists=True, dir_okay=False, help="CSV-bestand."),
+    mapping: Path = typer.Option(
+        PROJECT_ROOT / "config" / "import_mapping.yaml", help="Kolomtoewijzing (YAML)."
+    ),
+) -> None:
+    """Importeer voertuigen uit een CSV-bestand (gekoppeld op KvK-nummer)."""
+    from salesagent.importer.vehicle_import import import_vehicles, load_vehicle_mapping
+
+    try:
+        vehicle_mapping = load_vehicle_mapping(mapping)
+        with make_session_factory()() as session:
+            report = import_vehicles(session, csv_file, vehicle_mapping)
+    except ImportConfigError as exc:
+        _fail(str(exc))
+    typer.echo(report.render())
+
+
+@compliance_app.command("rechtsvorm-ophalen")
+def compliance_resolve_legal_forms() -> None:
+    """Haal onbekende rechtsvormen op via de KvK API (vereist KVK_API_KEY)."""
+    from salesagent.compliance.kvk import KvkError, kvk_client_from_settings, resolve_legal_form
+    from salesagent.models import LegalForm
+
+    client = kvk_client_from_settings(get_settings())
+    if client is None:
+        _fail("Geen KVK_API_KEY ingesteld in .env.")
+    resolved = failed = 0
+    with make_session_factory()() as session:
+        unknown = session.scalars(
+            select(Company).where(Company.legal_form == LegalForm.UNKNOWN)
+        ).all()
+        for company in unknown:
+            try:
+                if resolve_legal_form(company, client) is not LegalForm.UNKNOWN:
+                    resolved += 1
+            except KvkError as exc:
+                failed += 1
+                typer.echo(f"KvK {company.kvk_number}: {exc}", err=True)
+        session.commit()
+    typer.echo(f"Onbekend: {len(unknown)}, opgehaald: {resolved}, mislukt: {failed}")
+
+
+@privacy_app.command("verwijder-bedrijf")
+def privacy_delete_company(
+    kvk: str = typer.Option(..., help="KvK-nummer van het bedrijf."),
+    ja: bool = typer.Option(False, "--ja", help="Niet om bevestiging vragen."),
+) -> None:
+    """Verwijder een bedrijf met alle gekoppelde gegevens. Verzet blijft staan."""
+    from salesagent.privacy import delete_company
+
+    with make_session_factory()() as session:
+        company = _company_by_kvk(session, kvk)
+        if not ja:
+            typer.confirm(f"KvK {kvk} met alle gekoppelde gegevens verwijderen?", abort=True)
+        delete_company(session, company)
+        session.commit()
+    typer.echo(f"KvK {kvk} is verwijderd. Een eventueel verzet blijft geregistreerd.")
+
+
+@privacy_app.command("verwijder-contact")
+def privacy_delete_contact(
+    contact_id: int = typer.Option(..., "--id", help="ID van de contactpersoon."),
+) -> None:
+    """Verwijder één contactpersoon."""
+    from salesagent.models import Contact
+    from salesagent.privacy import delete_contact
+
+    with make_session_factory()() as session:
+        contact = session.get(Contact, contact_id)
+        if contact is None:
+            _fail(f"Geen contactpersoon met ID {contact_id}.")
+        delete_contact(session, contact)
+        session.commit()
+    typer.echo(f"Contactpersoon {contact_id} is verwijderd.")
+
+
+@privacy_app.command("opschonen")
+def privacy_purge() -> None:
+    """Pas de bewaartermijnen toe op gespreksverslagen en contactpersonen."""
+    from salesagent.privacy import purge_expired
+
+    settings = get_settings()
+    with make_session_factory()() as session:
+        result = purge_expired(
+            session,
+            transcript_days=settings.retention_transcript_days,
+            contact_days=settings.retention_contact_days,
+        )
+        session.commit()
+    typer.echo(result.render())
+
+
+@app.command("web")
+def web(
+    port: int = typer.Option(8000, help="Poort."),
+    host: str = typer.Option("127.0.0.1", help="Adres om op te luisteren."),
+) -> None:
+    """Start de webpagina om import en compliance in de browser te proberen."""
+    import uvicorn
+
+    uvicorn.run("salesagent.api.app:app", host=host, port=port)
 
 
 if __name__ == "__main__":

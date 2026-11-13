@@ -1,0 +1,9 @@
+KvK-nummer;Kenteken;Merk;Model;Bouwjaar;Koop of lease;Leasemaatschappij;Einddatum contract
+10000001;V-001-AA;Voorbeeldmerk;Bestelbus L2;2022;lease;Demo Lease B.V.;2027-03-31
+10000001;V-002-AA;Voorbeeldmerk;Bestelbus L2;2021;lease;Demo Lease B.V.;31-12-2026
+10000001;XX-01-YY;Voorbeeldmerk;Stationwagon;2020;koop;;
+10000002;V-003-BB;Testmerk;Pick-up;2023;lease;Fictief Leaseplan;2028-06-30
+10000002;V-003-BB;Testmerk;Pick-up;2023;lease;Fictief Leaseplan;2028-06-30
+99999999;V-004-CC;Testmerk;Bestelbus;2022;lease;;2027-01-01
+10000006;;Testmerk;Tractor;2019;koop;;
+10000010;ZZ-99-ZZ;Testmerk;Personenbus;1890;huur;;geen datum

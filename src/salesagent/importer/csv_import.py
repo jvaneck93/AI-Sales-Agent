@@ -8,7 +8,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from salesagent.models import Company, LegalForm, utcnow
+from salesagent.models import Company, Contact, LegalForm, utcnow
 from salesagent.normalize import (
     normalize_email,
     normalize_kvk,
@@ -18,7 +18,17 @@ from salesagent.normalize import (
 )
 
 REQUIRED_FIELDS = ("name", "kvk_number")
-OPTIONAL_FIELDS = ("legal_form", "address", "city", "sector", "website", "phone", "email")
+CONTACT_FIELDS = ("contact_name", "contact_role", "contact_phone", "contact_email")
+OPTIONAL_FIELDS = (
+    "legal_form",
+    "address",
+    "city",
+    "sector",
+    "website",
+    "phone",
+    "email",
+    *CONTACT_FIELDS,
+)
 
 
 class ImportConfigError(Exception):
@@ -70,21 +80,28 @@ class ImportReport:
         return "\n".join(lines)
 
 
-def load_mapping(path: Path) -> ImportMapping:
+def load_mapping(
+    path: Path,
+    *,
+    section: str = "columns",
+    required: tuple[str, ...] = REQUIRED_FIELDS,
+    optional: tuple[str, ...] = OPTIONAL_FIELDS,
+) -> ImportMapping:
+    """Read one column mapping (``section``) from the YAML mapping file."""
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
         raise ImportConfigError(f"Kan kolomtoewijzing niet lezen: {path}") from exc
-    columns = raw.get("columns") or {}
-    unknown = set(columns) - set(REQUIRED_FIELDS) - set(OPTIONAL_FIELDS)
+    columns = raw.get(section) or {}
+    unknown = set(columns) - set(required) - set(optional)
     if unknown:
         raise ImportConfigError(
-            f"Onbekende velden in kolomtoewijzing: {', '.join(sorted(unknown))}"
+            f"Onbekende velden in kolomtoewijzing ({section}): {', '.join(sorted(unknown))}"
         )
-    missing = [f for f in REQUIRED_FIELDS if not columns.get(f)]
+    missing = [f for f in required if not columns.get(f)]
     if missing:
         raise ImportConfigError(
-            f"Verplichte velden ontbreken in kolomtoewijzing: {', '.join(missing)}"
+            f"Verplichte velden ontbreken in kolomtoewijzing ({section}): {', '.join(missing)}"
         )
     return ImportMapping(
         columns={k: v for k, v in columns.items() if v},
@@ -93,11 +110,8 @@ def load_mapping(path: Path) -> ImportMapping:
     )
 
 
-def import_csv(session: Session, csv_path: Path, mapping: ImportMapping) -> ImportReport:
-    """Import companies from a CSV file. Commits once at the end."""
-    report = ImportReport()
-    seen_kvk: dict[str, int] = {}
-
+def open_mapped_csv(csv_path: Path, mapping: ImportMapping):
+    """Yield (line number, mapped values) per CSV row, after checking the header."""
     with csv_path.open(encoding=mapping.encoding, newline="") as handle:
         reader = csv.DictReader(handle, delimiter=mapping.delimiter)
         header = reader.fieldnames or []
@@ -106,12 +120,21 @@ def import_csv(session: Session, csv_path: Path, mapping: ImportMapping) -> Impo
             raise ImportConfigError(
                 "Kolommen uit de kolomtoewijzing ontbreken in de CSV: " + ", ".join(missing)
             )
-
         for row in reader:
-            line = reader.line_num
-            report.total += 1
-            values = {fld: (row.get(col) or "").strip() for fld, col in mapping.columns.items()}
-            _process_row(session, values, line, seen_kvk, report)
+            yield (
+                reader.line_num,
+                {fld: (row.get(col) or "").strip() for fld, col in mapping.columns.items()},
+            )
+
+
+def import_csv(session: Session, csv_path: Path, mapping: ImportMapping) -> ImportReport:
+    """Import companies (and their contact persons) from a CSV file. Commits once at the end."""
+    report = ImportReport()
+    seen_kvk: dict[str, int] = {}
+
+    for line, values in open_mapped_csv(csv_path, mapping):
+        report.total += 1
+        _process_row(session, values, line, seen_kvk, report)
 
     session.commit()
     return report
@@ -138,9 +161,19 @@ def _process_row(
         report.rejected.append(RowIssue(line, kvk, "Bedrijfsnaam ontbreekt"))
         return
     if kvk in seen_kvk:
-        report.rejected.append(
-            RowIssue(line, kvk, f"Dubbel KvK-nummer (eerder op regel {seen_kvk[kvk]})")
-        )
+        first = f"eerder op regel {seen_kvk[kvk]}"
+        company = session.scalar(select(Company).where(Company.kvk_number == kvk))
+        if company is not None and _upsert_contact(company, values, line, report):
+            report.warnings.append(
+                RowIssue(
+                    line,
+                    kvk,
+                    f"Dubbel KvK-nummer ({first}): bedrijfsgegevens genegeerd, "
+                    "contactpersoon toegevoegd",
+                )
+            )
+        else:
+            report.rejected.append(RowIssue(line, kvk, f"Dubbel KvK-nummer ({first})"))
         return
     seen_kvk[kvk] = line
 
@@ -174,10 +207,12 @@ def _process_row(
         company = Company(kvk_number=kvk, legal_form=LegalForm.UNKNOWN, **data)
         _set_legal_form(company, legal_form, raw_form)
         session.add(company)
+        session.flush()
+        _upsert_contact(company, values, line, report)
         report.created += 1
         return
 
-    changed = False
+    changed = _upsert_contact(company, values, line, report)
     for fld, value in data.items():
         if getattr(company, fld) != value:
             setattr(company, fld, value)
@@ -198,3 +233,47 @@ def _set_legal_form(company: Company, legal_form: LegalForm, raw: str) -> None:
     if legal_form is not LegalForm.UNKNOWN:
         company.legal_form_source = "csv"
         company.legal_form_checked_at = utcnow()
+
+
+def _upsert_contact(
+    company: Company, values: dict[str, str], line: int, report: ImportReport
+) -> bool:
+    """Add or update the contact person on this row. Returns True when something changed."""
+    name = values.get("contact_name", "")
+    role = values.get("contact_role", "")
+    if not name and not role:
+        return False
+
+    data: dict[str, str] = {}
+    for fld, normalizer, label in (
+        ("contact_phone", normalize_phone, "Telefoonnummer contactpersoon"),
+        ("contact_email", normalize_email, "E-mailadres contactpersoon"),
+    ):
+        if values.get(fld):
+            normalized = normalizer(values[fld])
+            if normalized is None:
+                report.warnings.append(
+                    RowIssue(line, company.kvk_number, f"{label} is ongeldig en overgeslagen")
+                )
+            else:
+                data[fld.removeprefix("contact_")] = normalized
+    if name:
+        data["name"] = name
+    if role:
+        data["role"] = role
+
+    def same(contact: Contact) -> bool:
+        if name:
+            return (contact.name or "").casefold() == name.casefold()
+        return not contact.name and (contact.role or "").casefold() == role.casefold()
+
+    existing = next((c for c in company.contacts if same(c)), None)
+    if existing is None:
+        company.contacts.append(Contact(**data))
+        return True
+    changed = False
+    for fld, value in data.items():
+        if getattr(existing, fld) != value:
+            setattr(existing, fld, value)
+            changed = True
+    return changed
