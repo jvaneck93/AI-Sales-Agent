@@ -294,6 +294,35 @@ def run_research(
     return report
 
 
+def research_candidates(
+    session: Session,
+    *,
+    limit: int,
+    campaign_id: int | None = None,
+    max_age_days: int = 30,
+) -> list[Company]:
+    """Callable leads without a fresh profile, at most ``limit``.
+
+    Research costs money per company with a real key, so it only runs for leads that
+    passed the compliance gate in a prepared round, and never for a whole file at once.
+    """
+    from salesagent.models import CampaignLead, LeadStatus
+
+    cutoff = utcnow() - timedelta(days=max_age_days)
+    fresh = select(Profile.company_id).where(Profile.created_at >= cutoff)
+    query = (
+        select(Company)
+        .join(CampaignLead, CampaignLead.company_id == Company.id)
+        .where(CampaignLead.status == LeadStatus.CALLABLE, Company.id.not_in(fresh))
+        .order_by(CampaignLead.id)
+        .distinct()
+        .limit(limit)
+    )
+    if campaign_id is not None:
+        query = query.where(CampaignLead.campaign_id == campaign_id)
+    return list(session.scalars(query))
+
+
 def research_provider_from_settings(settings) -> ResearchProvider:
     if settings.anthropic_api_key:
         return ClaudeResearchProvider(settings.anthropic_api_key, settings.anthropic_model)

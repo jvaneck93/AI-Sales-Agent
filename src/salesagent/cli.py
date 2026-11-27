@@ -41,19 +41,35 @@ def db_init() -> None:
 
 @app.command("import")
 def import_command(
-    csv_file: Path = typer.Argument(..., exists=True, dir_okay=False, help="CSV-bestand."),
+    bestand: Path = typer.Argument(..., exists=True, dir_okay=False, help="Excel- of CSV-bestand."),
     mapping: Path = typer.Option(
         PROJECT_ROOT / "config" / "import_mapping.yaml", help="Kolomtoewijzing (YAML)."
     ),
 ) -> None:
-    """Importeer bedrijven uit een CSV-bestand en toon het importrapport."""
+    """Importeer leads (bedrijven, contactpersonen, voertuigen) uit Excel of CSV."""
     try:
         import_mapping = load_mapping(mapping)
         with make_session_factory()() as session:
-            report = import_csv(session, csv_file, import_mapping)
+            report = import_csv(
+                session,
+                bestand,
+                import_mapping,
+                report_dir=PROJECT_ROOT / "data" / "importrapporten",
+            )
     except ImportConfigError as exc:
         _fail(str(exc))
     typer.echo(report.render())
+
+
+@app.command("import-sjabloon")
+def import_template_command(
+    uit: Path = typer.Argument(Path("sjabloon-leads.xlsx"), help="Waar het sjabloon komt."),
+) -> None:
+    """Maak een Excel-sjabloon met de kolommen voor de leadimport."""
+    from salesagent.importer.template import build_template
+
+    uit.write_bytes(build_template())
+    typer.echo(f"Sjabloon geschreven naar {uit}")
 
 
 @compliance_app.command("check")
@@ -129,18 +145,25 @@ def compliance_objection(
 
 @app.command("import-voertuigen")
 def import_vehicles_command(
-    csv_file: Path = typer.Argument(..., exists=True, dir_okay=False, help="CSV-bestand."),
+    csv_file: Path = typer.Argument(
+        ..., exists=True, dir_okay=False, help="Excel- of CSV-bestand."
+    ),
     mapping: Path = typer.Option(
         PROJECT_ROOT / "config" / "import_mapping.yaml", help="Kolomtoewijzing (YAML)."
     ),
 ) -> None:
-    """Importeer voertuigen uit een CSV-bestand (gekoppeld op KvK-nummer)."""
+    """Importeer alleen voertuigen uit een apart bestand (gekoppeld op KvK-nummer)."""
     from salesagent.importer.vehicle_import import import_vehicles, load_vehicle_mapping
 
     try:
         vehicle_mapping = load_vehicle_mapping(mapping)
         with make_session_factory()() as session:
-            report = import_vehicles(session, csv_file, vehicle_mapping)
+            report = import_vehicles(
+                session,
+                csv_file,
+                vehicle_mapping,
+                report_dir=PROJECT_ROOT / "data" / "importrapporten",
+            )
     except ImportConfigError as exc:
         _fail(str(exc))
     typer.echo(report.render())
@@ -361,16 +384,30 @@ def campaign_call(
 @app.command("research")
 def research_command(
     kvk: list[str] = typer.Option(None, help="Alleen deze KvK-nummers (meerdere mogelijk)."),
+    ronde: int = typer.Option(None, help="Alleen belbare leads uit deze belronde."),
+    max_aantal: int = typer.Option(25, "--max", help="Maximaal aantal profielen per keer."),
 ) -> None:
-    """Maak of ververs bedrijfsprofielen. Zonder ANTHROPIC_API_KEY wordt de sandbox gebruikt."""
-    from salesagent.enrichment.research import research_provider_from_settings, run_research
+    """Maak of ververs profielen van belbare leads, in porties. Zonder sleutel: sandbox."""
+    from salesagent.enrichment.research import (
+        research_candidates,
+        research_provider_from_settings,
+        run_research,
+    )
 
     settings = get_settings()
     with make_session_factory()() as session:
         if kvk:
             companies = [_company_by_kvk(session, k) for k in kvk]
         else:
-            companies = list(session.scalars(select(Company).order_by(Company.kvk_number)))
+            companies = research_candidates(
+                session,
+                limit=max(1, max_aantal),
+                campaign_id=ronde,
+                max_age_days=settings.research_max_age_days,
+            )
+        if not companies:
+            typer.echo("Geen belbare leads zonder actueel profiel. Bereid eerst een belronde voor.")
+            return
         provider = research_provider_from_settings(settings)
         report = run_research(
             session, companies, provider, max_age_days=settings.research_max_age_days

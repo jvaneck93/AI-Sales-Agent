@@ -315,4 +315,4 @@ def test_web_upload_with_wrong_columns_shows_error(web):
         "/import", files={"bestand": ("x.csv", b"Kolom A;Kolom B\n1;2\n", "text/csv")}
     )
     assert response.status_code == 200
-    assert "ontbreken in de CSV" in response.text
+    assert "niet gevonden in het bestand" in response.text

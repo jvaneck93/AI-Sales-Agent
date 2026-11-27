@@ -1,7 +1,6 @@
-"""Vehicle import: a separate CSV with one vehicle per row, linked by KvK number."""
+"""Vehicle import: a separate file (CSV or Excel) with one vehicle per row, linked by KvK."""
 
-import re
-from datetime import date, datetime
+import time
 from pathlib import Path
 
 from sqlalchemy import select
@@ -12,22 +11,26 @@ from salesagent.importer.csv_import import (
     ImportReport,
     RowIssue,
     load_mapping,
-    open_mapped_csv,
+    open_table,
+)
+from salesagent.importer.table import clean_kvk
+from salesagent.importer.vehicle_fields import (
+    VEHICLE_OPTIONAL,
+    normalize_license_plate,
+    parse_date,
+    vehicle_fields,
 )
 from salesagent.models import Company, Vehicle
-from salesagent.normalize import normalize_kvk
 
 VEHICLE_REQUIRED = ("kvk_number", "license_plate")
-VEHICLE_OPTIONAL = (
-    "make",
-    "model",
-    "build_year",
-    "ownership",
-    "lease_company",
-    "contract_end_date",
-)
-_OWNERSHIP = {"koop": "koop", "gekocht": "koop", "eigendom": "koop", "lease": "lease"}
-_DATE_FORMATS = ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y")
+__all__ = [
+    "VEHICLE_OPTIONAL",
+    "VEHICLE_REQUIRED",
+    "import_vehicles",
+    "load_vehicle_mapping",
+    "normalize_license_plate",
+    "parse_date",
+]
 
 
 def load_vehicle_mapping(path: Path) -> ImportMapping:
@@ -36,29 +39,22 @@ def load_vehicle_mapping(path: Path) -> ImportMapping:
     )
 
 
-def normalize_license_plate(raw: str) -> str | None:
-    """Dutch plates have 6 letters/digits; stored in upper case without dashes."""
-    value = re.sub(r"[\s\-]", "", raw).upper()
-    return value if re.fullmatch(r"[A-Z0-9]{6}", value) else None
-
-
-def parse_date(raw: str) -> date | None:
-    for fmt in _DATE_FORMATS:
-        try:
-            return datetime.strptime(raw.strip(), fmt).date()
-        except ValueError:
-            continue
-    return None
-
-
-def import_vehicles(session: Session, csv_path: Path, mapping: ImportMapping) -> ImportReport:
+def import_vehicles(
+    session: Session, path: Path, mapping: ImportMapping, *, report_dir: Path | None = None
+) -> ImportReport:
     """Import vehicles. Deduplicates on license plate. Commits once at the end."""
-    report = ImportReport()
+    started = time.perf_counter()
+    report = ImportReport(vehicle_mode=True)
+    rows, _ = open_table(
+        path, mapping, required=VEHICLE_REQUIRED, optional=VEHICLE_OPTIONAL, report=report
+    )
+    companies = {c.kvk_number: c for c in session.scalars(select(Company))}
+    plates = {v.license_plate: v for v in session.scalars(select(Vehicle)) if v.license_plate}
     seen: dict[str, int] = {}
 
-    for line, values in open_mapped_csv(csv_path, mapping):
+    for line, values in rows:
         report.total += 1
-        kvk = normalize_kvk(values["kvk_number"])
+        kvk, _ = clean_kvk(values["kvk_number"])
         if kvk is None:
             report.rejected.append(RowIssue(line, None, "KvK-nummer ontbreekt of is ongeldig"))
             continue
@@ -71,47 +67,26 @@ def import_vehicles(session: Session, csv_path: Path, mapping: ImportMapping) ->
                 RowIssue(line, kvk, f"Dubbel kenteken (eerder op regel {seen[plate]})")
             )
             continue
-        company = session.scalar(select(Company).where(Company.kvk_number == kvk))
+        company = companies.get(kvk)
         if company is None:
             report.rejected.append(
                 RowIssue(line, kvk, "Geen bedrijf met dit KvK-nummer: importeer eerst het bedrijf")
             )
             continue
         seen[plate] = line
-
-        data: dict[str, object] = {"company_id": company.id}
-        for fld in ("make", "model", "lease_company"):
-            if values.get(fld):
-                data[fld] = values[fld]
-        if values.get("build_year"):
-            year = values["build_year"]
-            if year.isdigit() and 1950 <= int(year) <= date.today().year + 1:
-                data["build_year"] = int(year)
-            else:
-                report.warnings.append(RowIssue(line, kvk, "Bouwjaar is ongeldig en overgeslagen"))
-        if values.get("ownership"):
-            ownership = _OWNERSHIP.get(values["ownership"].lower())
-            if ownership is None:
-                report.warnings.append(
-                    RowIssue(line, kvk, "Koop/lease niet herkend en overgeslagen")
-                )
-            else:
-                data["ownership"] = ownership
-        if values.get("contract_end_date"):
-            end_date = parse_date(values["contract_end_date"])
-            if end_date is None:
-                report.warnings.append(
-                    RowIssue(line, kvk, "Einddatum contract is ongeldig en overgeslagen")
-                )
-            else:
-                data["contract_end_date"] = end_date
-
-        vehicle = session.scalar(select(Vehicle).where(Vehicle.license_plate == plate))
+        data = vehicle_fields(
+            values, lambda r, ln=line, k=kvk: report.warnings.append(RowIssue(ln, k, r))
+        )
+        vehicle = plates.get(plate)
         if vehicle is None:
-            session.add(Vehicle(license_plate=plate, **data))
+            vehicle = Vehicle(license_plate=plate, company=company, **data)
+            session.add(vehicle)
+            plates[plate] = vehicle
             report.created += 1
             continue
-        changed = False
+        changed = vehicle.company is not company
+        if changed:
+            vehicle.company = company
         for fld, value in data.items():
             if getattr(vehicle, fld) != value:
                 setattr(vehicle, fld, value)
@@ -122,4 +97,7 @@ def import_vehicles(session: Session, csv_path: Path, mapping: ImportMapping) ->
             report.unchanged += 1
 
     session.commit()
+    report.seconds = time.perf_counter() - started
+    if report_dir is not None:
+        report.write_issues(report_dir)
     return report

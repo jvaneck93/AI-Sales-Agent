@@ -32,6 +32,7 @@ if not exist ".env" (
 )
 
 if not exist "data" mkdir data
+if not exist "data\import" mkdir "data\import"
 set "NIEUW="
 if not exist "data\salesagent.db" set "NIEUW=1"
 ".venv\Scripts\salesagent.exe" db init || goto :fout

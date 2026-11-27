@@ -14,3 +14,5 @@ data/demo_opnames/
 # Generated preview and release builds
 dist/
 preview/
+data/importrapporten/
+data/import/

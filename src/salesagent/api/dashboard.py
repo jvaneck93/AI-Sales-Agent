@@ -15,6 +15,7 @@ from salesagent.config import get_settings
 from salesagent.enrichment.fleet import summarize_fleet
 from salesagent.enrichment.research import (
     latest_profile,
+    research_candidates,
     research_provider_from_settings,
     run_research,
 )
@@ -246,12 +247,27 @@ def prepare(request: Request, campaign_id: int, session: Session = Depends(get_s
 
 
 @router.post("/research")
-def research(request: Request, session: Session = Depends(get_session)):
-    companies = session.scalars(select(Company)).all()
-    provider = research_provider_from_settings(get_settings())
-    report = run_research(
-        session, list(companies), provider, max_age_days=get_settings().research_max_age_days
+def research(
+    request: Request,
+    aantal: int = Form(25),
+    campagne: int = Form(0),
+    session: Session = Depends(get_session),
+):
+    settings = get_settings()
+    companies = research_candidates(
+        session,
+        limit=max(1, min(aantal, 500)),
+        campaign_id=campagne or None,
+        max_age_days=settings.research_max_age_days,
     )
+    if not companies:
+        return _redirect(
+            request,
+            "merken",
+            melding="Geen belbare leads zonder actueel profiel. Bereid eerst een belronde voor.",
+        )
+    provider = research_provider_from_settings(settings)
+    report = run_research(session, companies, provider, max_age_days=settings.research_max_age_days)
     session.commit()
     return _redirect(request, "merken", melding="Research gedraaid.", rapport=report.render())
 

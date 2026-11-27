@@ -20,6 +20,40 @@ namen en nummers in de demo zijn verzonnen.
 Zonder demodata beginnen: `start.bat leeg`. Opnieuw beginnen met verse demodata:
 `scripts\reset-demo.bat`.
 
+## Leads importeren (Excel of CSV, ook 40.000+ regels)
+
+Twee manieren, allebei op de pagina **Data en compliance**:
+
+- **Uploaden**: kies een `.xlsx`- of `.csv`-bestand en klik Importeren.
+- **Importmap**: zet het bestand in de map `data\import` en kies het op de pagina. Handig voor
+  grote bestanden.
+
+Verplicht zijn alleen **Bedrijfsnaam** en **KvK-nummer**. De rest is optioneel maar maakt het
+bellen beter:
+
+| Kolom | Waarom |
+|---|---|
+| Rechtsvorm | Alleen bv en nv worden koud gebeld. Leeg = niet bellen tot de KvK-check van de ronde. |
+| Telefoon | Algemeen nummer. Zonder nummer kan er niet gebeld worden. |
+| Adres (of Straat, Huisnummer, Postcode), Plaats | Selectie per regio en accountmanager. |
+| Sector | Selectie per merk. |
+| Website, E-mail | Research en bevestigingsmail. |
+| Contactpersoon, Functie, Telefoon/E-mail contactpersoon | Vraag naar de juiste persoon. |
+| Kenteken, Merk, Model, Bouwjaar, Koop of lease, Leasemaatschappij, Einddatum contract | Wagenpark; één voertuig per regel, bedrijfskolommen herhalen. |
+
+- Andere kolomnamen worden vaak vanzelf herkend (bv. Handelsnaam, KvK, Vestigingsplaats,
+  Branche, Datum eerste toelating). Het importrapport laat zien welke kolom waarvoor is gebruikt.
+  Lukt dat niet, pas dan `config\import_mapping.yaml` aan.
+- Regels met hetzelfde KvK-nummer worden één bedrijf. Opnieuw importeren werkt bij, maakt niets
+  dubbel en laat verzet en status staan.
+- Excel laat voorloopnullen weg: een KvK-nummer van 7 cijfers krijgt zijn nul terug (met een
+  waarschuwing). Zet de kolom in Excel bij voorkeur op Tekst.
+- Een sjabloon met uitleg: de link op de Data-pagina of `salesagent import-sjabloon`.
+- Afgekeurde regels en waarschuwingen staan samengevat in het rapport en per regel in
+  `data\importrapporten`.
+
+Getest met 40.000 regels (verzonnen data): ongeveer 10 seconden.
+
 ## Wat je ziet
 
 | Pagina | Wat |
@@ -40,13 +74,14 @@ In een opdrachtprompt in deze map: `.venv\Scripts\activate`, daarna:
 
 ```
 salesagent demo                               demodata en een gesimuleerde ronde per merk
-salesagent import data\voorbeeld_bedrijven.csv    bedrijven importeren (kolommen: config\import_mapping.yaml)
+salesagent import leads.xlsx                  leads importeren uit Excel of CSV
+salesagent import-sjabloon                    Excel-sjabloon met de kolommen
 salesagent ronde merken                       merken en belrondes
 salesagent ronde maak --merk "Naam" --naam "Ronde 2027-1" --varianten A,B
 salesagent ronde voorbereiden 3               selectie, rechtsvorm opnieuw controleren, compliance
 salesagent ronde bellen 3                     droge run: laat exact zien wat er verstuurd zou worden
 salesagent ronde bellen 3 --modus simulator   gesimuleerde gesprekken (sandbox)
-salesagent research                           bedrijfsprofielen maken of verversen
+salesagent research --ronde 3 --max 25        profielen voor belbare leads, in porties
 salesagent opnames demo                       verzonnen CATI-export om te proberen
 salesagent opnames verwerken export.csv --map pad\naar\mp4
 salesagent agent prompt --uit prompt.md       systeemprompt voor ElevenLabs

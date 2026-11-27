@@ -10,10 +10,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from salesagent.compliance.gate import may_be_called
+from salesagent.compliance.gate import callable_legal_forms, may_be_called
 from salesagent.compliance.kvk import KvkClient, KvkError
+from salesagent.compliance.register import find_valid_opt_in
 from salesagent.enrichment.fleet import summarize_fleet
 from salesagent.models import (
     Brand,
@@ -86,9 +87,12 @@ class PrepareReport:
     callable: int = 0
     blocked: dict[str, int] = field(default_factory=dict)
     kvk_errors: int = 0
+    kvk_lookups: int = 0
 
     def render(self) -> str:
         lines = [f"Geselecteerd: {self.selected}, belbaar: {self.callable}"]
+        if self.kvk_lookups:
+            lines.append(f"Rechtsvorm opgevraagd bij KvK: {self.kvk_lookups}")
         if self.kvk_errors:
             lines.append(f"KvK-fouten (niet gebeld): {self.kvk_errors}")
         lines += [f"  {n}x {reason}" for reason, n in sorted(self.blocked.items())]
@@ -115,32 +119,46 @@ def prepare_round(
     brand = campaign.brand
     variants = [v.strip() for v in campaign.agent_variant.split(",") if v.strip()] or ["A"]
     existing = {lead.company_id: lead for lead in campaign.leads}
-    for company in session.scalars(select(Company).order_by(Company.id)):
-        in_segment, reason = segment_match(company, brand.segment_rules or {})
-        if not in_segment:
-            continue
-        report.selected += 1
-        if kvk_client is not None:
-            try:
-                recheck_legal_form(company, kvk_client, now)
-            except KvkError:
-                report.kvk_errors += 1
-        decision = may_be_called(company, session, campaign=campaign, now=now)
-        lead = existing.get(company.id)
-        if lead is None:
-            lead = CampaignLead(company_id=company.id, status=LeadStatus.CALLABLE)
-            lead.variant = _variant(company, campaign, variants)
-            campaign.leads.append(lead)
-        if decision.allowed:
-            if lead.status is LeadStatus.BLOCKED:
-                lead.status = LeadStatus.CALLABLE
-            lead.reason = decision.reason
-            report.callable += 1
-        else:
-            lead.status = LeadStatus.BLOCKED
-            lead.reason = decision.reason
-            key = decision.reason.split(" (")[0].split(":")[0]
-            report.blocked[key] = report.blocked.get(key, 0) + 1
+    callable_forms = callable_legal_forms()
+    companies = session.scalars(
+        select(Company).options(selectinload(Company.vehicles)).order_by(Company.id)
+    )
+    # no_autoflush: the gate's lookups must not flush every changed company (slow at 40k+).
+    with session.no_autoflush:
+        for company in companies:
+            in_segment, reason = segment_match(company, brand.segment_rules or {})
+            if not in_segment:
+                continue
+            report.selected += 1
+            # A known legal form we never cold-call, without consent, is blocked anyway:
+            # no KvK lookup needed (saves API calls on large files).
+            needs_check = (
+                company.legal_form in callable_forms
+                or company.legal_form is LegalForm.UNKNOWN
+                or find_valid_opt_in(session, company) is not None
+            )
+            if kvk_client is not None and needs_check:
+                try:
+                    recheck_legal_form(company, kvk_client, now)
+                    report.kvk_lookups += 1
+                except KvkError:
+                    report.kvk_errors += 1
+            decision = may_be_called(company, session, campaign=campaign, now=now)
+            lead = existing.get(company.id)
+            if lead is None:
+                lead = CampaignLead(company_id=company.id, status=LeadStatus.CALLABLE)
+                lead.variant = _variant(company, campaign, variants)
+                campaign.leads.append(lead)
+            if decision.allowed:
+                if lead.status is LeadStatus.BLOCKED:
+                    lead.status = LeadStatus.CALLABLE
+                lead.reason = decision.reason
+                report.callable += 1
+            else:
+                lead.status = LeadStatus.BLOCKED
+                lead.reason = decision.reason
+                key = decision.reason.split(" (")[0].split(":")[0]
+                report.blocked[key] = report.blocked.get(key, 0) + 1
     campaign.status = CampaignStatus.PREPARED
     session.flush()
     return report

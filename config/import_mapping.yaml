@@ -1,8 +1,14 @@
-# Kolomtoewijzing voor de bron-CSV.
-# Links: veld in dit systeem. Rechts: kolomkop in de CSV.
-# Pas alleen de rechterkant aan als de export andere kolomnamen heeft.
-delimiter: ";"
-encoding: utf-8-sig
+# Kolomtoewijzing voor de leadbestanden (Excel .xlsx of CSV).
+# Links: veld in dit systeem. Rechts: kolomkop in het bestand.
+# Staat een kolom er niet onder deze naam in, dan worden gangbare namen herkend
+# (bv. Handelsnaam, KvK, Vestigingsplaats, Branche). Het importrapport laat zien
+# welke kolom waarvoor is gebruikt. Pas alleen de rechterkant aan.
+#
+# auto = automatisch herkennen. Anders bv. delimiter: ";" en encoding: cp1252.
+delimiter: auto
+encoding: auto
+# Excel: naam van het werkblad. Leeg = het eerste blad met herkenbare kolommen.
+sheet:
 columns:
   name: Bedrijfsnaam
   kvk_number: KvK-nummer
@@ -19,8 +25,17 @@ columns:
   contact_role: Functie
   contact_phone: Telefoon contactpersoon
   contact_email: E-mail contactpersoon
+  # Optioneel: één voertuig per regel in hetzelfde bestand (zoals een wagenparkexport).
+  # Herhaal dan de bedrijfskolommen; regels met hetzelfde KvK-nummer worden één bedrijf.
+  license_plate: Kenteken
+  make: Merk
+  model: Model
+  build_year: Bouwjaar
+  ownership: Koop of lease
+  lease_company: Leasemaatschappij
+  contract_end_date: Einddatum contract
 
-# Kolomtoewijzing voor de aparte voertuigen-CSV (één voertuig per regel).
+# Kolomtoewijzing voor een apart voertuigenbestand (één voertuig per regel).
 vehicle_columns:
   kvk_number: KvK-nummer
   license_plate: Kenteken

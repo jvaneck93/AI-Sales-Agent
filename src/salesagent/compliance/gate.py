@@ -86,11 +86,18 @@ def may_be_called(
             f"(bron: {objection.source})",
         )
 
-    if campaign is not None:
+    decision = _basis(session, company)
+    # Round checks only matter for a company that could be called at all; a legal-form
+    # refusal keeps its own, more precise reason.
+    if decision.allowed and campaign is not None:
         blocked = _round_checks(session, company, campaign, now or utcnow())
         if blocked is not None:
             return blocked
+    return decision
 
+
+def _basis(session: Session, company: Company) -> CallDecision:
+    """Legal form or recorded consent: the basis for calling (hard rules 1 and 3)."""
     if company.legal_form in callable_legal_forms():
         checked = (
             company.legal_form_checked_at.date().isoformat()

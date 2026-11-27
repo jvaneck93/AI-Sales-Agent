@@ -35,7 +35,9 @@ def test_demo_round_dry_run_and_report(runner):
     assert "*" in result.output  # number is masked
 
     result = runner.invoke(cli.app, ["ronde", "bellen", "3", "--modus", "live", "--aantal", "1"])
-    assert "DRY_RUN staat aan" in result.output
+    # Refused either by DRY_RUN or, outside office hours, by the call window.
+    assert "Gesprekken: 0" in result.output
+    assert "DRY_RUN staat aan" in result.output or "Buiten beltijden" in result.output
 
     result = runner.invoke(cli.app, ["rapport"])
     assert result.exit_code == 0, result.output

@@ -6,19 +6,54 @@
 
 
   <div class="stats">
-    <div class="stat"><b>{{ stats.companies }}</b><span class="muted">bedrijven</span></div>
-    <div class="stat"><b>{{ stats.allowed }}</b><span class="muted">mogen gebeld worden</span></div>
-    <div class="stat"><b>{{ stats.denied }}</b><span class="muted">niet bellen</span></div>
-    <div class="stat"><b>{{ stats.contacts }}</b><span class="muted">contactpersonen</span></div>
-    <div class="stat"><b>{{ stats.vehicles }}</b><span class="muted">voertuigen</span></div>
+    <div class="stat"><b>{{ "{:,}".format(stats.companies).replace(",", ".") }}</b><span class="muted">bedrijven</span></div>
+    <div class="stat"><b>{{ "{:,}".format(stats.callable_form).replace(",", ".") }}</b><span class="muted">bv of nv (belbaar op rechtsvorm)</span></div>
+    <div class="stat"><b>{{ "{:,}".format(stats.unknown_form).replace(",", ".") }}</b><span class="muted">rechtsvorm onbekend</span></div>
+    <div class="stat"><b>{{ "{:,}".format(stats.contacts).replace(",", ".") }}</b><span class="muted">contactpersonen</span></div>
+    <div class="stat"><b>{{ "{:,}".format(stats.vehicles).replace(",", ".") }}</b><span class="muted">voertuigen</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Leads importeren (Excel of CSV)</h2>
+    <p class="small">Eén regel per bedrijf, of één regel per voertuig met de bedrijfskolommen herhaald.
+      Verplicht: <b>Bedrijfsnaam</b> en <b>KvK-nummer</b>. Andere kolomnamen worden vaak vanzelf herkend;
+      het importrapport laat zien welke kolom waarvoor is gebruikt.
+      <a href="{{ root }}/import/sjabloon.xlsx">Download het sjabloon (Excel)</a>.</p>
+    <div class="grid">
+      <div>
+        <h3 class="small">Uploaden</h3>
+        <form method="post" action="{{ root }}/import" enctype="multipart/form-data">
+          <input type="file" name="bestand" accept=".xlsx,.xlsm,.csv,.txt" required>
+          <button>Importeren</button>
+        </form>
+      </div>
+      <div>
+        <h3 class="small">Uit de importmap</h3>
+        {% if import_files %}
+        <form method="post" action="{{ root }}/import-map">
+          <select name="bestand">{% for f in import_files %}<option value="{{ f.name }}">{{ f.name }} ({{ f.kb }} kB)</option>{% endfor %}</select>
+          <select name="soort"><option value="leads">leads</option><option value="voertuigen">alleen voertuigen</option></select>
+          <button>Importeren</button>
+        </form>
+        {% else %}
+        <p class="muted small">Zet een .xlsx- of .csv-bestand in <code>{{ import_dir }}</code> en ververs deze pagina.</p>
+        {% endif %}
+      </div>
+    </div>
+    <p class="muted small">Opnieuw importeren is veilig: bedrijven worden herkend op KvK-nummer en bijgewerkt, niet dubbel aangemaakt. Verzet en status blijven staan.</p>
   </div>
 
   <div class="card">
     <h2>Bedrijven</h2>
+    {% if legal_forms %}<p class="small muted">Rechtsvorm: {% for f, n in legal_forms %}{{ f }} {{ "{:,}".format(n).replace(",", ".") }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    <form method="get" action="{{ root }}/data" class="small" style="margin-bottom:10px">
+      <input name="q" value="{{ q }}" placeholder="Zoek op naam, KvK of plaats"> <button class="secondary">Zoeken</button>
+    </form>
     {% if not rows %}
-      <p class="muted">Nog geen bedrijven. Laad de voorbeelddata of importeer een CSV.</p>
-      <form method="post" action="voorbeelddata"><button>Voorbeelddata laden</button></form>
+      <p class="muted">{% if q %}Niets gevonden.{% else %}Nog geen bedrijven. Laad de voorbeelddata of importeer een bestand.{% endif %}</p>
+      {% if not q %}<form method="post" action="voorbeelddata"><button>Voorbeelddata laden</button></form>{% endif %}
     {% else %}
+    {% if stats.companies > rows|length %}<p class="small muted">De eerste {{ rows|length }} van {{ "{:,}".format(stats.companies).replace(",", ".") }} getoond. Zoek om een bedrijf te vinden.</p>{% endif %}
     <div class="scroll">
     <table>
       <thead><tr><th>KvK</th><th>Bedrijf</th><th>Rechtsvorm</th><th>Bellen</th><th>Reden</th><th></th></tr></thead>
@@ -64,18 +99,10 @@
 
   <div class="grid">
     <div class="card">
-      <h2>Bedrijven importeren</h2>
-      <p class="muted small">CSV met puntkomma's, kolommen volgens config/import_mapping.yaml.</p>
-      <form method="post" action="import" enctype="multipart/form-data">
-        <input type="file" name="bestand" accept=".csv" required>
-        <button>Importeren</button>
-      </form>
-    </div>
-    <div class="card">
-      <h2>Voertuigen importeren</h2>
-      <p class="muted small">Aparte CSV, één voertuig per regel, gekoppeld op KvK-nummer.</p>
-      <form method="post" action="import-voertuigen" enctype="multipart/form-data">
-        <input type="file" name="bestand" accept=".csv" required>
+      <h2>Alleen voertuigen importeren</h2>
+      <p class="muted small">Apart bestand met één voertuig per regel, gekoppeld op KvK-nummer.</p>
+      <form method="post" action="{{ root }}/import-voertuigen" enctype="multipart/form-data">
+        <input type="file" name="bestand" accept=".xlsx,.xlsm,.csv,.txt" required>
         <button>Importeren</button>
       </form>
     </div>
@@ -103,6 +130,7 @@
       <h2>Verzetregister</h2>
       {% if not objections %}<p class="muted">Leeg.</p>{% else %}
       <ul class="small" style="margin:0;padding-left:18px">
+        {% if objection_count > objections|length %}<li class="muted">laatste {{ objections|length }} van {{ objection_count }}</li>{% endif %}
         {% for o in objections %}
         <li>{{ o.date.isoformat() }} · KvK {{ o.kvk_number or "-" }} · tel. {{ o.phone or "-" }} · bron: {{ o.source }}</li>
         {% endfor %}
