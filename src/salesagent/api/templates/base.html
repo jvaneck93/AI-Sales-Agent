@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Overzicht{% endblock %} · AI-belbureau</title>
+<style>
+
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1f2b; --muted: #5d6676; --line: #dfe3ea;
+    --accent: #1f5fbf; --ok: #17794a; --ok-bg: #e3f4ea; --no: #b3261e; --no-bg: #fbe9e7;
+    --warn-bg: #fff4d6; --warn: #7a5a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e8ebf1; --muted: #9aa4b5; --line: #2c3340;
+      --accent: #7fb0ff; --ok: #6fd6a0; --ok-bg: #173526; --no: #ff9a8f; --no-bg: #3d1c19;
+      --warn-bg: #3a3010; --warn: #f0d078;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; white-space: nowrap; }
+  .ok { background: var(--ok-bg); color: var(--ok); }
+  .no { background: var(--no-bg); color: var(--no); }
+  .warn { background: var(--warn-bg); color: var(--warn); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(46%, 230px), 1fr)); gap: 10px;
+    margin-bottom: 16px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 24px; line-height: 1.2; }
+  .notice { border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
+  pre { margin: 0; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+  details ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .grid .card { margin: 0; }
+  .grid.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+  form { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px; width: 100%; }
+  button { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 7px;
+    padding: 8px 14px; background: var(--accent); color: var(--card); align-self: flex-start; }
+  button.plain { background: transparent; color: var(--no); border: 1px solid var(--line);
+    padding: 3px 9px; font-size: 13px; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
+  :root { --series-1: #257de0; --series-2: #f47230; --series-3: #00b894; --series-4: #f2a600;
+    --series-5: #ee7fac; --track: #eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --series-1: #338ced; --series-2: #e76624; --series-3: #00a888; --series-4: #d28e05;
+      --series-5: #e24d8b; --track: #232a35; }
+  }
+  nav { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 18px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line); }
+  nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 7px;
+    font-size: 14px; }
+  nav a.active, nav a:hover { background: var(--card); color: var(--text);
+    box-shadow: 0 0 0 1px var(--line) inset; }
+  a { color: var(--accent); }
+  .stat small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .bars { display: flex; flex-direction: column; gap: 6px; }
+  .bar-row { display: grid; grid-template-columns: 190px 1fr 70px; align-items: center; gap: 10px;
+    font-size: 14px; }
+  .bar-track { background: var(--track); border-radius: 4px; height: 14px; }
+  .bar-fill { background: var(--series-1); height: 14px; border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar-row span.v { text-align: right; font-variant-numeric: tabular-nums; }
+  .stack { display: flex; height: 18px; gap: 2px; margin: 6px 0 10px; }
+  .stack div { height: 18px; }
+  .stack div:first-child { border-radius: 4px 0 0 4px; }
+  .stack div:last-child { border-radius: 0 4px 4px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+    margin-right: 5px; vertical-align: -1px; }
+  i.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .row form { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+  .row label { min-width: 140px; }
+  select, textarea { font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
+  textarea { width: 100%; min-height: 70px; }
+  .transcript { display: flex; flex-direction: column; gap: 6px; }
+  .turn { padding: 8px 12px; border-radius: 10px; max-width: 80%; font-size: 14px; }
+  .turn.agent { background: var(--track); align-self: flex-start; }
+  .turn.user { background: var(--card); border: 1px solid var(--line); align-self: flex-end; }
+  .turn small { display: block; color: var(--muted); font-size: 11px; }
+  .md h1 { font-size: 18px; } .md h2 { font-size: 15px; margin-top: 14px; }
+  .pill-filter a { margin-right: 6px; font-size: 13px; }
+  .muted-row td { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>AI-belbureau</h1>
+    <span class="muted">{% block subtitle %}Outbound B2B, per merk, met mens in de lus{% endblock %}</span>
+    {% if dry_run %}<span class="badge ok" title="Er gaan geen echte gesprekken uit">Sandbox: DRY_RUN aan</span>
+    {% else %}<span class="badge no">DRY_RUN uit: echte gesprekken mogelijk</span>{% endif %}
+  </header>
+  <nav>
+    {% set links = [("", "Overzicht"), ("merken", "Merken en rondes"), ("bedrijven", "Leads (CRM)"),
+      ("afspraken", "Afspraken"), ("qa", "QA"), ("outbox", "Uitgaande mail"),
+      ("opnames", "Leren van opnames"), ("agent", "Agent en testset"), ("data", "Data en compliance")] %}
+    {% for href, label in links %}
+      <a href="{{ root }}/{{ href }}" class="{{ 'active' if nav == href else '' }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if error %}<div class="notice no">{{ error }}</div>{% endif %}
+  {% if message %}<div class="notice ok">{{ message }}</div>{% endif %}
+  {% if report %}<div class="card"><pre>{{ report }}</pre></div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

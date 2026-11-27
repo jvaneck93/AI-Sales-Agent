@@ -1,0 +1,12 @@
+{% macro tile(value, label, note="", title="") -%}
+<div class="stat" {% if title %}title="{{ title }}"{% endif %}><b>{{ value }}</b><span class="muted">{{ label }}</span>{% if note %}<small>{{ note }}</small>{% endif %}</div>
+{%- endmacro %}
+{% macro outcome_badge(o) -%}
+{% set cls = {"afspraak": "ok", "warm": "ok", "verzet": "no", "opgehangen": "warn", "dry run": "warn", "niet gestart": "no"} %}
+<span class="badge {{ cls.get(o, '') }}">{{ o or "–" }}</span>
+{%- endmacro %}
+{% macro lead_badge(s) -%}
+{% set v = s.value if s.value is defined else s %}
+{% set cls = {"afspraak": "ok", "warm": "ok", "geblokkeerd": "no", "verzet merk": "no", "verzet alles": "no", "belbaar": "", "terugbellen": "warn"} %}
+<span class="badge {{ cls.get(v, '') }}">{{ v }}</span>
+{%- endmacro %}

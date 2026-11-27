@@ -10,14 +10,16 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from salesagent.api.common import get_session, render
+from salesagent.api.dashboard import router as dashboard_router
+from salesagent.api.voice_api import router as voice_router
 from salesagent.compliance.gate import may_be_called
 from salesagent.compliance.register import ConsentError, register_objection, register_opt_in
 from salesagent.config import get_settings
-from salesagent.db import make_session_factory, upgrade_database
+from salesagent.db import upgrade_database
 from salesagent.importer.csv_import import ImportConfigError, import_csv, load_mapping
 from salesagent.importer.vehicle_import import import_vehicles, load_vehicle_mapping
 from salesagent.models import Company, Consent, ConsentType
@@ -29,9 +31,6 @@ MAPPING_PATH = PROJECT_ROOT / "config" / "import_mapping.yaml"
 SAMPLE_COMPANIES = PROJECT_ROOT / "data" / "voorbeeld_bedrijven.csv"
 SAMPLE_VEHICLES = PROJECT_ROOT / "data" / "voorbeeld_voertuigen.csv"
 
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
-_session_factory = None
-
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -39,15 +38,9 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Sales AI Agent", lifespan=lifespan)
-
-
-def get_session():
-    global _session_factory
-    if _session_factory is None:
-        _session_factory = make_session_factory()
-    with _session_factory() as session:
-        yield session
+app = FastAPI(title="AI-belbureau", lifespan=lifespan)
+app.include_router(dashboard_router)
+app.include_router(voice_router)
 
 
 def _page(
@@ -91,7 +84,7 @@ def _page(
             "vehicles": sum(len(r["company"].vehicles) for r in rows),
         },
     }
-    return templates.TemplateResponse(request, "index.html", context)
+    return render(request, "index.html", nav="data", **context)
 
 
 def _find_company(session: Session, kvk: str) -> Company | None:
@@ -107,7 +100,7 @@ async def _save_upload(upload: UploadFile) -> Path:
         return Path(handle.name)
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/data", response_class=HTMLResponse)
 def index(request: Request, session: Session = Depends(get_session)):
     return _page(request, session)
 

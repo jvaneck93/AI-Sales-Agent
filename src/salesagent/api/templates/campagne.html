@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ campaign.name }}{% endblock %}
+{% block content %}
+<h2>{{ campaign.name }} <span class="badge">{{ campaign.status.value }}</span></h2>
+<p class="muted small">Merk {{ campaign.brand.name }} · varianten {{ campaign.agent_variant }} · rechtsvorm gecontroleerd sinds {{ campaign.legal_form_checked_since|dt }}</p>
+<div class="stats">
+  {{ m.tile(stats.leads, "leads in segment") }}
+  {{ m.tile(stats.blocked, "geblokkeerd", "compliance of verzet") }}
+  {{ m.tile(stats.addresses_called, "nagebeld") }}
+  {{ m.tile(stats.hangup_rate|pct, "ophangen na AI-melding") }}
+  {{ m.tile(stats.warm, "warm of beter") }}
+  {{ m.tile(stats.appointments, "afspraken") }}
+  {{ m.tile(stats.objections_brand ~ " / " ~ stats.objections_all, "verzet merk / alles") }}
+  {{ m.tile(stats.cost_per_appointment|eur, "kosten per afspraak") }}
+</div>
+<div class="grid">
+  <div class="card">
+    <h2>1. Voorbereiden</h2>
+    <p class="small">Selecteert bedrijven op het segment van het merk, controleert de rechtsvorm opnieuw en draait de compliance-poort met merkcontext (verzet voor dit merk of alles, belmoeheid over alle merken).</p>
+    <form method="post" action="{{ root }}/campagnes/{{ campaign.id }}/voorbereiden"><button>Ronde voorbereiden</button></form>
+  </div>
+  <div class="card">
+    <h2>2. Bellen</h2>
+    <form method="post" action="{{ root }}/campagnes/{{ campaign.id }}/bellen">
+      <label>Modus<select name="modus">
+        <option value="simulator">Sandbox: gesimuleerde prospects (geen echte gesprekken)</option>
+        <option value="dryrun">Droge run: toon exact wat naar ElevenLabs zou gaan</option>
+        <option value="live">Echt bellen via ElevenLabs (vereist sleutels en DRY_RUN=false)</option>
+      </select></label>
+      <label>Maximaal aantal gesprekken<input name="aantal" type="number" value="25"></label>
+      <label style="flex-direction:row;gap:6px;align-items:center"><input type="checkbox" name="buiten_beltijden" value="1" style="width:auto" checked> Sandbox ook buiten beltijden</label>
+      <button>Start</button>
+    </form>
+  </div>
+  {% if last_dry %}
+  <div class="card">
+    <h2>Laatste droge run</h2>
+    <p class="small"><a href="{{ root }}/gesprekken/{{ last_dry.id }}">Bekijk de payload van poging {{ last_dry.id }}</a></p>
+  </div>
+  {% endif %}
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Leads</h2>
+  <p class="pill-filter small"><a href="?">alle</a>{% for s in statuses %}{% if counts.get(s) %}<a href="?status={{ s.value }}">{{ s.value }} ({{ counts.get(s) }})</a>{% endif %}{% endfor %}</p>
+  <div class="scroll"><table>
+    <tr><th>Bedrijf</th><th>Plaats</th><th>Variant</th><th>Status</th><th class="num">Pogingen</th><th>Volgende poging</th><th>Reden</th></tr>
+    {% for l in leads %}
+    <tr><td><a href="{{ root }}/bedrijven/{{ l.company.kvk_number }}">{{ l.company.name }}</a></td><td>{{ l.company.city or "" }}</td><td>{{ l.variant }}</td>
+      <td>{{ m.lead_badge(l.status) }}</td><td class="num">{{ l.attempts }}</td><td class="small">{{ l.next_attempt_after|dt if l.next_attempt_after and l.status.value in ("belbaar", "gebeld", "niet bereikt", "terugbellen") else "" }}</td><td class="small muted">{{ l.reason }}</td></tr>
+    {% else %}<tr><td colspan="7" class="muted">Nog geen leads: bereid de ronde voor.</td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endblock %}

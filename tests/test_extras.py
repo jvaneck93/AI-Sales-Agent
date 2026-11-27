@@ -275,7 +275,7 @@ def _allowed(session, kvk: str) -> bool:
 
 def test_web_flow(web):
     client, session = web
-    assert "Nog geen bedrijven" in client.get("/").text
+    assert "Nog geen bedrijven" in client.get("/data").text
 
     page = client.post("/voorbeelddata").text
     assert "Voorbeelddata geladen" in page

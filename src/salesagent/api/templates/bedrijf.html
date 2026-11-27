@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+<h2>{{ c.name }}</h2>
+<p class="muted small">KvK {{ c.kvk_number }} · {{ c.legal_form.value }} (bron {{ c.legal_form_source or "–" }}, gecontroleerd {{ c.legal_form_checked_at|dt }}) · {{ c.address or "" }} {{ c.city or "" }} · {{ c.sector or "" }} · status {{ c.status.value }}</p>
+<div class="stats">
+  {{ m.tile(fleet.count, "voertuigen", fleet.makes|dictsort|map("join", ": ")|join(", ")) }}
+  {{ m.tile(fleet.next_contract_end.strftime("%d-%m-%Y") if fleet.next_contract_end else "–", "eerstvolgend contract-einde") }}
+  {{ m.tile(attempts|length, "belpogingen") }}
+  {{ m.tile(cost_total|eur, "kosten dit adres", costs|map("first")|join(", ")) }}
+</div>
+<div class="grid">
+  <div class="card">
+    <h2>Mag gebeld worden?</h2>
+    {% for b, d in decisions %}<p><span class="badge {{ 'ok' if d.allowed else 'no' }}">{{ "ja" if d.allowed else "nee" }}</span> {{ b.name }}<br><span class="small muted">{{ d.reason }}</span></p>
+    {% else %}<p class="muted">Nog geen merken.</p>{% endfor %}
+    <h2 style="margin-top:12px">Toestemming en verzet</h2>
+    {% for x in consents %}<p class="small"><span class="badge {{ 'no' if x.type.value == 'verzet' else 'ok' }}">{{ x.type.value }}</span> {{ "alleen " ~ brands[x.brand_id].name if x.brand_id else "alle merken" }} · {{ x.date }} · {{ x.source }}</p>
+    {% else %}<p class="small muted">Geen.</p>{% endfor %}
+  </div>
+  <div class="card">
+    <h2>Briefing-bouwstenen (research)</h2>
+    {% if profile %}
+      <p class="small muted">Prompt {{ profile.prompt_version }} · {{ profile.created_at|dt }}</p>
+      <p>{{ profile.data.profiel }}</p>
+      <p><b>Gespreksopener:</b> {{ profile.data.gespreksopener }}</p>
+      {% if profile.data.wagenparksignalen %}<ul>{% for s in profile.data.wagenparksignalen %}<li class="small">{{ s }}</li>{% endfor %}</ul>{% endif %}
+      {% if profile.sources %}<details><summary>Bronnen</summary><ul>{% for s in profile.sources %}<li>{{ s }}</li>{% endfor %}</ul></details>{% endif %}
+    {% else %}<p class="muted">Nog geen profiel.</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Per belronde</h2>
+    {% for l in leads %}<p>{{ l.campaign.name }}: {{ m.lead_badge(l.status) }} <span class="small muted">{{ l.attempts }} pogingen · {{ l.reason }}</span></p>
+    {% else %}<p class="muted">Nog in geen ronde.</p>{% endfor %}
+    <h2 style="margin-top:12px">Afspraken</h2>
+    {% for a in appointments %}<p><a href="{{ root }}/afspraken/{{ a.id }}">{{ a.starts_at|dt }}</a> · {{ a.account_manager }} · <span class="badge">{{ a.qa_status }}</span></p>
+    {% else %}<p class="muted">Geen.</p>{% endfor %}
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Gesprekken</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Tijd</th><th>Ronde</th><th>Uitkomst</th><th class="num">Duur</th><th class="num">Kosten</th><th>Samenvatting</th><th>Grondslag</th></tr>
+    {% for a in attempts %}
+    <tr><td><a href="{{ root }}/gesprekken/{{ a.id }}">{{ a.id }}</a></td><td class="small">{{ a.started_at|dt }}</td><td class="small">{{ brands[a.brand_id].name if a.brand_id else "" }}</td>
+      <td>{{ m.outcome_badge(a.outcome) }}</td><td class="num">{{ "%.0f s"|format(a.duration_s) if a.duration_s else "" }}</td><td class="num">{{ a.cost_eur|eur }}</td>
+      <td class="small">{{ a.summary or "" }}</td><td class="small muted">{{ a.basis_detail }}</td></tr>
+    {% else %}<tr><td colspan="8" class="muted">Nog niet gebeld.</td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endblock %}

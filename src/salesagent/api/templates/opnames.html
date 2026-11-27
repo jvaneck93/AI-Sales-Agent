@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Leren van opnames{% endblock %}
+{% block content %}
+<div class="stats">
+  {{ m.tile(total, "opnames in export") }}
+  {{ m.tile(usable, "bruikbaar voor analyse", "na filter, pseudonimisering en vangrail") }}
+  {{ m.tile(playbook.version if playbook else "–", "laatste playbook") }}
+  {{ m.tile(proposals|length, "bezwaarvoorstellen te beoordelen") }}
+</div>
+<div class="grid">
+  <div class="card">
+    <h2>CATI-export verwerken</h2>
+    <p class="small">Upload de gesprekstabel (CSV, kolommen in <code>config/cati_mapping.yaml</code>) en geef de map met de mp4-bestanden. Per opname: ffprobe, video weg, transcript, pseudonimisering, kenmerken <b>zonder</b> uitkomst. De koppeltabel (echte agent-ID's, KvK) staat apart in <code>data/opnames_werk/koppeltabel.json</code>.</p>
+    <form method="post" action="{{ root }}/opnames/verwerken" enctype="multipart/form-data">
+      <label>CATI-export (CSV)<input type="file" name="export" accept=".csv"></label>
+      <label>Map met opnames op deze computer<input name="map_opnames" placeholder="C:\opnames\2025"></label>
+      <button>Verwerken</button>
+    </form>
+    <form method="post" action="{{ root }}/opnames/verwerken" style="margin-top:10px"><input type="hidden" name="demo" value="1"><button class="secondary">Fictieve demo-export verwerken (600 gesprekken)</button></form>
+    <p class="small muted" style="margin-top:8px">Transcriptie: nu een bestaand transcript naast de opname (.txt/.json). Lokale Whisper is ingebouwd maar staat pas aan na de DPIA (geen audio naar derden).</p>
+  </div>
+  {% if stats %}
+  <div class="card">
+    <h2>Wat werkt (alleen cellen met n ≥ {{ stats.min_cel }})</h2>
+    <div class="scroll"><table style="min-width:420px">
+      <tr><th>Bezwaar → reactie</th><th class="num">n</th><th class="num">Warm+</th><th class="num">Afspraak</th></tr>
+      {% for k, c in stats.bezwaar_reactie.items() %}<tr class="{{ '' if c.betrouwbaar else 'muted-row' }}"><td>{{ k }}</td><td class="num">{{ c.n }}</td><td class="num">{{ c.warm_of_beter|pct }}</td><td class="num">{{ c.afspraak|pct }}</td></tr>{% endfor %}
+    </table></div>
+    <p class="small muted">Grijs = te weinig data voor een conclusie.</p>
+  </div>
+  {% endif %}
+</div>
+{% if proposals %}
+<div class="card" style="margin-top:16px"><h2>Voorstellen voor de bezwaarbibliotheek</h2>
+  <p class="small">Uit succesvolle gesprekken, gepseudonimiseerd. Laat ze valideren door je beste agents; pas na goedkeuring gebruikt de agent ze.</p>
+  {% for p in proposals %}<div style="margin-bottom:10px"><b>{{ p.label }}</b> <span class="small muted">{{ p.evidence }}</span><ul>{% for r in p.responses %}<li>“{{ r }}”</li>{% endfor %}</ul>
+  <form method="post" action="{{ root }}/bezwaren/{{ p.id }}/goedkeuren"><button class="secondary">Goedkeuren</button></form></div>{% endfor %}
+</div>
+{% endif %}
+{% if playbook %}<div class="card md" style="margin-top:16px">{{ playbook.content|md }}</div>{% endif %}
+{% if sample %}
+<div class="card"><h2>Voorbeeld gepseudonimiseerde transcripten</h2>
+  {% for r in sample %}<details><summary>{{ r.call_id }} · agent {{ r.agent_token }} · {{ r.segment.vloot }}{% if r.excluded_reason %} · {{ r.excluded_reason }}{% endif %}</summary>
+  <div class="transcript" style="margin:8px 0">{% for t in r.transcript %}<div class="turn {{ t.role }}">{{ t.message }}</div>{% endfor %}</div>
+  <pre class="small">{{ r.features }}</pre></details>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

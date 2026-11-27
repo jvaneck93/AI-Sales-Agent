@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Overzicht{% endblock %}
+{% block content %}
+{% if empty %}
+<div class="card">
+  <h2>Nog geen data</h2>
+  <p>Laad fictieve demodata: 160 bedrijven, twee merken met accountmanagers, mock-research en per merk een gesimuleerde belronde (sandbox, er wordt niet echt gebeld). Of importeer eigen CSV's onder <a href="{{ root }}/data">Data en compliance</a>.</p>
+  <form method="post" action="{{ root }}/demo"><button>Demodata laden en sandbox-ronde draaien</button></form>
+</div>
+{% else %}
+<div class="stats">
+  {{ m.tile(stats.addresses_called, "nagebelde adressen", stats.attempts ~ " belpogingen") }}
+  {{ m.tile(stats.hangup_rate|pct, "ophangen na AI-melding", stats.hung_up_after_ai ~ " van " ~ stats.connected ~ " bereikt", "De belangrijkste onbekende: meet dit eerst") }}
+  {{ m.tile(stats.warm_rate|pct, "warm of beter", "per afgerond gesprek; norm 10%") }}
+  {{ m.tile(stats.appointments, "afspraken", stats.appointment_rate|pct ~ " per afgerond gesprek") }}
+  {{ m.tile(stats.cost_per_address|eur, "kosten per adres", "callcenter nu " ~ stats.benchmark_cost_per_address|eur) }}
+  {{ m.tile(stats.cost_per_appointment|eur, "kosten per afspraak", "doel < € 70") }}
+  {{ m.tile(stats.margin|pct, "brutomarge", "omzet " ~ stats.revenue|eur) }}
+  {{ m.tile(("%.1f"|format(stats.qa_minutes_per_appointment)).replace(".", ",") if stats.qa_minutes_per_appointment else "–", "QA-minuten per afspraak", "moet per maand dalen") }}
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Trechter, alle rondes</h2>
+    <div class="bars" role="table" aria-label="Trechter">
+      {% for label, value in funnel %}
+      <div class="bar-row" role="row" title="{{ label }}: {{ value }}">
+        <span role="cell">{{ label }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width: {{ (100 * value / funnel_max)|round(1) }}%"></div></div>
+        <span class="v" role="cell">{{ value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin-top:10px">Afgerond gesprek = bereikt minus opgehangen direct na de AI-melding. Benchmark callcenter: 10% warm, de helft daarvan afspraak.</p>
+  </div>
+  <div class="card">
+    <h2>Kosten, totaal {{ stats.cost_total|eur }}</h2>
+    {% set colors = {"data": "var(--series-1)", "bellen": "var(--series-2)", "research": "var(--series-3)", "qa": "var(--series-4)"} %}
+    {% set labels = {"data": "Data (RDC/KvK)", "bellen": "Belminuten", "research": "Research", "qa": "Menselijke QA"} %}
+    {% if stats.cost_total %}
+    <div class="stack" aria-hidden="true">
+      {% for kind, value in costs %}<div style="flex: {{ value }}; background: {{ colors[kind] }}" title="{{ labels[kind] }}: {{ value|eur }}"></div>{% endfor %}
+    </div>
+    {% endif %}
+    <table style="min-width:0">
+      <tr><th>Post</th><th class="num">Totaal</th><th class="num">Per adres</th><th class="num">Per afspraak</th></tr>
+      {% for kind, value in costs %}
+      <tr><td><i class="dot" style="background: {{ colors[kind] }}"></i>{{ labels[kind] }}</td>
+        <td class="num">{{ value|eur }}</td>
+        <td class="num">{{ (value / stats.addresses_called)|eur if stats.addresses_called else "–" }}</td>
+        <td class="num">{{ (value / stats.appointments)|eur if stats.appointments else "–" }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="small muted" style="margin-top:8px">Tarieven staan in <code>config/kosten.yaml</code> en zijn [AANNAME] tot ze gemeten zijn. Belminuten in de sandbox zijn gesimuleerd.</p>
+  </div>
+</div>
+
+<div class="grid two" style="margin-top:16px">
+  <div class="card" style="grid-column: 1 / -1">
+    <h2>Per merk</h2>
+    <div class="scroll"><table style="min-width:520px">
+      <tr><th>Merk</th><th class="num">Adressen</th><th class="num">Warm</th><th class="num">Afspraken</th><th class="num">Verzet merk / alles</th><th class="num">€/adres</th><th class="num">€/afspraak</th></tr>
+      {% for b, s in per_brand %}
+      <tr><td>{{ b.name }}</td><td class="num">{{ s.addresses_called }}</td><td class="num">{{ s.warm }}</td><td class="num">{{ s.appointments }}</td>
+        <td class="num">{{ s.objections_brand }} / {{ s.objections_all }}</td><td class="num">{{ s.cost_per_address|eur }}</td><td class="num">{{ s.cost_per_appointment|eur }}</td></tr>
+      {% endfor %}
+    </table></div>
+  </div>
+  <div class="card" style="grid-column: 1 / -1">
+    <h2>A/B per variant</h2>
+    {% if stats.variants %}
+    <div class="scroll"><table style="min-width:0">
+      <tr><th>Variant</th><th class="num">Pogingen</th><th class="num">Bereikt</th><th class="num">Opgehangen na AI-melding</th><th class="num">Warm+</th><th class="num">Afspraak</th></tr>
+      {% for v, c in stats.variants.items() %}
+      <tr><td>{{ v }}</td><td class="num">{{ c.gesprekken }}</td><td class="num">{{ c.bereikt }}</td><td class="num">{{ c.opgehangen_na_ai }}</td><td class="num">{{ c.warm }}</td><td class="num">{{ c.afspraak }}</td></tr>
+      {% endfor %}
+    </table></div>
+    <p class="small muted">Varianten worden per bedrijf toegewezen, gestratificeerd op vlootomvang. Trek geen conclusie onder ±1.800 afgeronde gesprekken per variant (zie opnameplan).</p>
+    {% else %}<p class="muted">Nog geen gesprekken.</p>{% endif %}
+  </div>
+  <div class="card" style="grid-column: 1 / -1">
+    <h2>Heeft een mens nodig</h2>
+    {% for item in attention[:12] %}
+      <p><span class="badge warn">{{ item.soort }}</span> <a href="{{ root }}/{{ item.link }}">{{ item.tekst }}</a></p>
+    {% else %}<p class="muted">Niets openstaand.</p>{% endfor %}
+    {% if attention|length > 12 %}<p class="small muted">en nog {{ attention|length - 12 }}, zie <a href="{{ root }}/qa">QA</a>.</p>{% endif %}
+    {% if stats.disclosure_missing %}<p class="badge no">AI-melding ontbrak {{ stats.disclosure_missing }}x</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

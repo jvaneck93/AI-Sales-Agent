@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Merken en rondes{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Belrondes</h2>
+  <div class="scroll"><table>
+    <tr><th>Ronde</th><th>Merk</th><th>Status</th><th class="num">Leads</th><th class="num">Nagebeld</th><th class="num">Afspraken</th><th class="num">€/adres</th><th class="num">€/afspraak</th></tr>
+    {% for c in campaigns %}{% set s = campaign_stats[c.id] %}
+    <tr><td><a href="{{ root }}/campagnes/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.brand.name }}</td><td>{{ c.status.value }}</td>
+      <td class="num">{{ s.leads }}</td><td class="num">{{ s.addresses_called }}</td><td class="num">{{ s.appointments }}</td>
+      <td class="num">{{ s.cost_per_address|eur }}</td><td class="num">{{ s.cost_per_appointment|eur }}</td></tr>
+    {% else %}<tr><td colspan="8" class="muted">Nog geen rondes.</td></tr>{% endfor %}
+  </table></div>
+</div>
+<div class="grid">
+  <div class="card">
+    <h2>Nieuwe belronde</h2>
+    <form method="post" action="{{ root }}/campagnes">
+      <label>Merk<select name="merk">{% for b in brands %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select></label>
+      <label>Naam<input name="naam" placeholder="bijv. ronde 2027-1" required></label>
+      <label>A/B-varianten (kommagescheiden)<input name="varianten" value="A,B"></label>
+      <button {% if not brands %}disabled{% endif %}>Aanmaken</button>
+    </form>
+    <p class="small muted" style="margin-top:8px">Per ronde wordt de rechtsvorm opnieuw gecontroleerd {% if kvk_live %}via de KvK API{% else %}(nu sandbox: geen KVK_API_KEY, echte gesprekken worden dan geweigerd){% endif %}.</p>
+  </div>
+  <div class="card">
+    <h2>Research</h2>
+    <p class="small">Verrijkt alle bedrijven tot een kort profiel met bronnen. Zonder ANTHROPIC_API_KEY alleen eigen data (mock). Profielen jonger dan 30 dagen worden overgeslagen.</p>
+    <form method="post" action="{{ root }}/research"><button class="secondary">Research draaien</button></form>
+  </div>
+  <div class="card">
+    <h2>Nieuw merk</h2>
+    <form method="post" action="{{ root }}/merken">
+      <label>Naam<input name="naam" required></label>
+      <label>Pitch (één zin)<input name="pitch"></label>
+      <label>Kwalificatievragen (één per regel)<textarea name="vragen"></textarea></label>
+      <label>Minimaal aantal voertuigen<input name="min_voertuigen" type="number" value="3"></label>
+      <label>Prijs per nagebeld adres (€)<input name="prijs_adres" type="number" step="0.01" value="11"></label>
+      <label>Prijs per goedgekeurde afspraak (€)<input name="prijs_afspraak" type="number" step="0.01" value="0"></label>
+      <button>Toevoegen</button>
+    </form>
+  </div>
+</div>
+{% for b in brands %}
+<div class="card" style="margin-top:16px">
+  <h2>{{ b.name }}</h2>
+  <p>{{ b.pitch }}</p>
+  <p class="small muted">Segment: {{ b.segment_rules or "alle bedrijven" }} · prijs {{ b.price_per_address_eur|eur }} per adres{% if b.price_per_appointment_eur %}, {{ b.price_per_appointment_eur|eur }} per afspraak{% endif %}</p>
+  <details><summary>Kwalificatievragen</summary><ul>{% for q in b.qualification_questions %}<li>{{ q }}</li>{% endfor %}</ul></details>
+  <h2 style="margin-top:12px">Accountmanagers</h2>
+  <ul>{% for am in b.account_managers %}<li>{{ am.name }} · {{ am.email }} · {{ am.regions|join(", ") or "alle regio's" }} · {{ am.work_start }}–{{ am.work_end }}</li>{% else %}<li class="muted">Nog geen: zonder accountmanager kan de agent niet inplannen.</li>{% endfor %}</ul>
+  <div class="row"><form method="post" action="{{ root }}/merken/{{ b.id }}/accountmanager">
+    <label>Naam<input name="naam" required></label><label>E-mail<input name="email" type="email" required></label>
+    <label>Plaatsen (komma)<input name="regio"></label><button class="secondary">Toevoegen</button>
+  </form></div>
+</div>
+{% endfor %}
+{% endblock %}

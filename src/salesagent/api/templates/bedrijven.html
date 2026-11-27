@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Leads (CRM){% endblock %}
+{% block content %}
+<div class="card">
+  <div class="row"><form method="get"><label>Zoek op naam, KvK of plaats<input name="q" value="{{ q }}"></label><button class="secondary">Zoeken</button></form></div>
+</div>
+<div class="card"><div class="scroll"><table>
+  <tr><th>Bedrijf</th><th>KvK</th><th>Rechtsvorm</th><th>Plaats</th><th class="num">Voertuigen</th><th>Status</th><th class="num">Gesprekken</th><th>Laatste uitkomst</th><th class="num">Kosten</th></tr>
+  {% for r in rows %}
+  <tr><td><a href="{{ root }}/bedrijven/{{ r.c.kvk_number }}">{{ r.c.name }}</a></td><td>{{ r.c.kvk_number }}</td><td>{{ r.c.legal_form.value }}</td><td>{{ r.c.city or "" }}</td>
+    <td class="num">{{ r.fleet.count }}</td><td>{{ r.c.status.value }}</td><td class="num">{{ r.attempts }}</td>
+    <td>{% if r.last %}<a href="{{ root }}/gesprekken/{{ r.last.id }}">{{ m.outcome_badge(r.last.outcome) }}</a>{% endif %}</td><td class="num">{{ r.costs|eur }}</td></tr>
+  {% else %}<tr><td colspan="9" class="muted">Geen bedrijven gevonden.</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}
