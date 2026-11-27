@@ -63,6 +63,22 @@ Bouw per fase, met tests, en stop na elke fase voor akkoord.
 
 **Fase 7: Overzicht.** Eenvoudig dashboard of rapport: aantallen per status, conversie per stap, kosten, en een lijst van wat aandacht van een mens nodig heeft.
 
+## Stand van zaken (27-11-2026)
+
+Fase 1 t/m 7 zijn in de sandbox gebouwd en getest (zie `README.md`). Uitbreiding op verzoek van de
+eigenaar: meerdere merken met belrondes, verzet per merk of voor alles, kwalificatie met direct
+inplannen, QA door een mens, kosten per adres en per afspraak, en een pijplijn die CATI-opnames
+omzet in playbook, bezwarenbibliotheek en testset (zonder de uitkomst aan het model te geven).
+
+Besluiten van de eigenaar:
+- Alleen bv en nv worden koud gebeld (`CALLABLE_LEGAL_FORMS=bv,nv`); stichting, vereniging en
+  coöperatie vallen erbuiten. De rechtsvorm wordt per belronde opnieuw gecontroleerd; live
+  bellen vereist een controle via de KvK API (bron `kvk`).
+- Twijfelt iemand of verzet voor één merk of voor alles geldt: alles blokkeren.
+
+Nog niet live: KvK API, Anthropic, ElevenLabs. Alles draait op mock/simulator tot de sleutels er
+zijn. `docs/koppelingen.md` beschrijft per koppeling wat nog gecontroleerd moet worden.
+
 ## Open beslissingen (vraag ernaar, gok niet)
 
 - Welke agenda en welk CRM gebruikt de dealer? Tot dat bekend is: bouw een adapter-interface met een lokale testimplementatie.
