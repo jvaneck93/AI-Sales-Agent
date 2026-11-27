@@ -6,3 +6,11 @@ __pycache__/
 .env
 data/*.db
 data/*.db-journal
+# Recordings, transcripts and the pseudonym link table are personal data: never in git.
+data/opnames_werk/
+data/demo_opnames/
+*.mp4
+*.wav
+# Generated preview and release builds
+dist/
+preview/

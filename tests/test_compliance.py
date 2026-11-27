@@ -35,10 +35,7 @@ def _opt_in(session, company, **overrides):
 # --- Hard rule 1: legal form filter -------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "legal_form",
-    [LegalForm.BV, LegalForm.NV, LegalForm.STICHTING, LegalForm.VERENIGING, LegalForm.COOPERATIE],
-)
+@pytest.mark.parametrize("legal_form", [LegalForm.BV, LegalForm.NV])
 def test_legal_entities_may_be_called(make_company, legal_form):
     decision = may_be_called(make_company(legal_form))
     assert decision.allowed
@@ -65,13 +62,17 @@ def test_unknown_legal_form_is_not_called(make_company):
 def test_every_legal_form_has_an_explicit_outcome(make_company):
     """A newly added legal form must never become callable by accident."""
     allowed = {form for form in LegalForm if may_be_called(make_company(form)).allowed}
-    assert allowed == {
-        LegalForm.BV,
-        LegalForm.NV,
-        LegalForm.STICHTING,
-        LegalForm.VERENIGING,
-        LegalForm.COOPERATIE,
-    }
+    # Decision 27-11-2026: only bv and nv.
+    assert allowed == {LegalForm.BV, LegalForm.NV}
+
+
+@pytest.mark.parametrize(
+    "legal_form", [LegalForm.STICHTING, LegalForm.VERENIGING, LegalForm.COOPERATIE]
+)
+def test_other_legal_entities_are_outside_the_decision(make_company, legal_form):
+    decision = may_be_called(make_company(legal_form))
+    assert not decision.allowed
+    assert "alleen bv en nv" in decision.reason
 
 
 def test_opt_in_allows_non_legal_entity(session, make_company):

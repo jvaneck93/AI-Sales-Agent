@@ -5,7 +5,7 @@ from datetime import date
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from salesagent.models import Company, CompanyStatus, Consent, ConsentType
+from salesagent.models import Brand, Company, CompanyStatus, Consent, ConsentType
 from salesagent.normalize import normalize_kvk, normalize_phone
 
 
@@ -44,8 +44,13 @@ def register_objection(
     phone: str | None = None,
     objection_date: date | None = None,
     evidence: str = "",
+    brand: Brand | None = None,
 ) -> Consent:
-    """Record an objection. Takes effect immediately and permanently (hard rule 2)."""
+    """Record an objection. Takes effect immediately and permanently (hard rule 2).
+
+    ``brand=None`` means the objection applies to every brand. Only pass a brand
+    when the person clearly said it is about that brand only.
+    """
     if not source.strip():
         raise ConsentError("Verzet vereist een bron.")
     kvk = normalize_kvk(kvk_number) if kvk_number else None
@@ -64,8 +69,12 @@ def register_objection(
         source=source.strip(),
         date=objection_date or date.today(),
         evidence=evidence.strip(),
+        brand_id=brand.id if brand is not None else None,
     )
     session.add(consent)
+    if brand is not None:
+        session.flush()
+        return consent
 
     matches = []
     if kvk:
@@ -78,19 +87,22 @@ def register_objection(
     return consent
 
 
-def find_objection(session: Session, company: Company) -> Consent | None:
-    """Find an objection for this company by record, KvK number or phone number."""
+def find_objection(
+    session: Session, company: Company, *, brand: Brand | None = None
+) -> Consent | None:
+    """Find an objection for this company by record, KvK number or phone number.
+
+    With a brand: objections for all brands or for this brand. Without: any.
+    """
     matches = [Consent.kvk_number == company.kvk_number]
     if company.id is not None:
         matches.append(Consent.company_id == company.id)
     if company.phone:
         matches.append(Consent.phone == company.phone)
-    return session.scalar(
-        select(Consent)
-        .where(Consent.type == ConsentType.OBJECTION, or_(*matches))
-        .order_by(Consent.date)
-        .limit(1)
-    )
+    query = select(Consent).where(Consent.type == ConsentType.OBJECTION, or_(*matches))
+    if brand is not None:
+        query = query.where(or_(Consent.brand_id.is_(None), Consent.brand_id == brand.id))
+    return session.scalar(query.order_by(Consent.brand_id.is_not(None), Consent.date).limit(1))
 
 
 def find_valid_opt_in(session: Session, company: Company) -> Consent | None:
