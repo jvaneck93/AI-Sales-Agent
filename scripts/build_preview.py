@@ -111,6 +111,8 @@ def build(output: Path) -> None:
             return 'href="#niet-in-preview"'
 
         body = href_re.sub(relink, body)
+        # Demo numbers are fictional, but mask them anyway in case the preview is shared.
+        body = re.sub(r"\+31(\d)\d{6}(\d{2})", r"+31\1******\2", body)
         body = body.replace("<form", "<form data-preview")
         views.append(f'<template id="v-{_slug(path)}" data-title="{title}">{body}</template>')
     stamp = datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("%d-%m-%Y %H:%M")
