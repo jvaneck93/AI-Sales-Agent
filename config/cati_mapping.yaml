@@ -1,0 +1,33 @@
+# Kolomtoewijzing voor de CATI-export (gesprekstabel, zonder audio).
+# Links: veld in dit systeem. Rechts: kolomkop in de export. Pas alleen rechts aan.
+delimiter: ";"
+encoding: utf-8-sig
+columns:
+  call_id: call_id
+  file: bestand
+  kvk_number: kvk
+  agent_id: agent
+  started_at: start
+  duration_s: duur_sec
+  disposition: dispositie
+  campaign: campagne
+  notes: notitie
+# Dispositiecode -> uitkomstlabel (de waarheid, besluit Jeroen).
+# Onbekende codes worden niet gebruikt en in het rapport genoemd.
+dispositions:
+  AFS: afspraak
+  WARM: warm
+  TB: terugbellen
+  GI: geen interesse
+  ONG: ongeschikt
+  VM: voicemail
+  NB: niet bereikt
+  VZ: verzet
+min_duration_s: 20
+# Vangrail per agent: agents met minstens zoveel gesprekken worden vergeleken met het
+# segmentgemiddelde; wijkt hun aandeel warm+afspraak meer dan deze factor af, dan
+# blijven ze buiten de analyse van wat werkt.
+guardrail_min_calls: 20
+guardrail_factor: 2.0
+# Geen conclusie op minder gesprekken per cel (variant x segment).
+min_cell: 30

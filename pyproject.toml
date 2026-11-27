@@ -18,10 +18,13 @@ dependencies = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "uvicorn>=0.30",
+    "anthropic>=2.14",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+# Local transcription of CATI recordings (also needs ffmpeg on the PATH).
+whisper = ["faster-whisper>=1.0"]
 
 [project.scripts]
 salesagent = "salesagent.cli:app"
@@ -42,7 +45,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/salesagent/cli.py" = ["B008", "UP007"]
-"src/salesagent/api/app.py" = ["B008"]
+"src/salesagent/api/*.py" = ["B008"]
 
 [tool.setuptools.package-data]
 salesagent = ["api/templates/*.html"]

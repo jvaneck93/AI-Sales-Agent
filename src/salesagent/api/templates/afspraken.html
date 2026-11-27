@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Afspraken{% endblock %}
+{% block content %}
+<div class="card"><div class="scroll"><table>
+  <tr><th>Wanneer</th><th>Bedrijf</th><th>Accountmanager</th><th>Plaats</th><th>QA</th><th>Status</th><th>Terugmelding</th></tr>
+  {% for a in rows %}
+  <tr class="{{ 'muted-row' if a.status == 'geannuleerd' else '' }}"><td><a href="{{ root }}/afspraken/{{ a.id }}">{{ a.starts_at|dt }}</a></td><td>{{ a.company.name }}</td><td>{{ a.account_manager }}</td><td class="small">{{ a.location or "" }}</td>
+    <td><span class="badge {{ {'goedgekeurd': 'ok', 'afgekeurd': 'no', 'te controleren': 'warn'}.get(a.qa_status, '') }}">{{ a.qa_status }}</span></td><td>{{ a.status }}</td><td>{{ a.result or "" }}</td></tr>
+  {% else %}<tr><td colspan="7" class="muted">Nog geen afspraken.</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}

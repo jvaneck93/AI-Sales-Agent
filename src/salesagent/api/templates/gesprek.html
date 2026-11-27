@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Gesprek {{ a.id }}{% endblock %}
+{% block content %}
+<h2>Gesprek {{ a.id }} · <a href="{{ root }}/bedrijven/{{ c.kvk_number }}">{{ c.name }}</a> {{ m.outcome_badge(a.outcome) }}</h2>
+<p class="small muted">{{ a.started_at|dt }} · {{ "droge run / sandbox" if a.dry_run else "echt gesprek" }} · gespreks-ID {{ a.external_call_id or "–" }} · {{ "%.0f s"|format(a.duration_s) if a.duration_s else "" }} · {{ a.cost_eur|eur }}</p>
+<p class="small"><b>Waarom mocht dit gesprek:</b> {{ a.basis_detail }}</p>
+<div class="grid">
+  <div class="card">
+    <h2>Transcript</h2>
+    {% if a.ai_disclosure_given is false %}<p class="badge no">AI-melding ontbrak</p>{% endif %}
+    <div class="transcript">
+      {% for t in a.transcript or [] %}<div class="turn {{ t.role }}"><small>{{ "AI-assistent" if t.role == "agent" else "Gesprekspartner" }} · {{ "%.0f"|format(t.t or 0) }} s</small>{{ t.message }}</div>
+      {% else %}<p class="muted">Geen transcript{% if a.outcome == "dry run" %} (droge run){% endif %}.</p>{% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h2>Analyse</h2>
+    <p>{{ a.summary or "" }}</p>
+    {% if a.analysis %}
+    <ul class="small">
+      <li>Beslisser bereikt: {{ "ja" if a.analysis.decision_maker_reached else "nee" }}</li>
+      <li>Bezwaren: {{ a.analysis.objections|join(", ") or "geen" }}</li>
+      {% if a.analysis.opt_out_scope %}<li>Verzet geldt voor: <b>{{ a.analysis.opt_out_scope }}</b></li>{% endif %}
+      {% if a.analysis.callback_at %}<li>Terugbellen: {{ a.analysis.callback_at[:16].replace("T", " ") }}</li>{% endif %}
+      {% for q, ans in (a.analysis.qualification or {}).items() %}<li>{{ q }} → “{{ ans }}”</li>{% endfor %}
+      {% for n in a.analysis.notes or [] %}<li>{{ n }}</li>{% endfor %}
+      {% if a.analysis.persona %}<li class="muted">Sandbox-persona: {{ a.analysis.persona }}</li>{% endif %}
+    </ul>
+    {% endif %}
+    {% if a.qa_status in ("steekproef", "te controleren") %}
+    <h2 style="margin-top:12px">QA</h2>
+    <form method="post" action="{{ root }}/gesprekken/{{ a.id }}/qa">
+      <label>Notitie<textarea name="notitie"></textarea></label>
+      <label>Minuten besteed<input name="minuten" type="number" step="0.5" value="2"></label>
+      <div class="row"><button name="oordeel" value="goed">Gesprek in orde</button><button class="secondary" name="oordeel" value="fout">Fout gevonden</button></div>
+    </form>
+    {% elif a.qa_status %}<p class="small">QA: <span class="badge">{{ a.qa_status }}</span></p>{% endif %}
+  </div>
+</div>
+{% if payload %}
+<div class="card" style="margin-top:16px"><h2>Request naar ElevenLabs {{ "(niet verstuurd)" if a.dry_run else "" }}</h2>
+<details><summary>Toon JSON</summary><pre>{{ payload }}</pre></details></div>
+{% endif %}
+{% endblock %}

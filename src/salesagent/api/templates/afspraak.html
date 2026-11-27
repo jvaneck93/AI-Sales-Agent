@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Afspraak{% endblock %}
+{% block content %}
+<h2>Afspraak {{ a.company.name }} · {{ a.starts_at|dt }} <span class="badge {{ {'goedgekeurd': 'ok', 'afgekeurd': 'no', 'te controleren': 'warn'}.get(a.qa_status, '') }}">{{ a.qa_status }}</span></h2>
+<div class="grid">
+  <div class="card md">{{ a.briefing|md }}</div>
+  <div class="card">
+    {% if a.qa_status == "te controleren" %}
+    <h2>Controle voordat de klant het ziet</h2>
+    <p class="small">Check in het transcript: AI-melding gegeven, juiste beslisser, geen toezeggingen over prijs of levering, en of de klant echt een afspraak wilde.</p>
+    <form method="post" action="{{ root }}/afspraken/{{ a.id }}/goedkeuren">
+      <label>Notitie (optioneel)<input name="notitie"></label>
+      <label>Minuten besteed<input name="minuten" type="number" step="0.5" value="4"></label>
+      <button>Goedkeuren en briefing versturen</button>
+    </form>
+    <form method="post" action="{{ root }}/afspraken/{{ a.id }}/afkeuren" style="margin-top:12px">
+      <label>Reden van afkeuren<input name="notitie" required></label>
+      <input type="hidden" name="minuten" value="4">
+      <button class="secondary">Afkeuren</button>
+    </form>
+    {% else %}
+    <h2>Terugmelding accountmanager</h2>
+    <p class="small">Basis voor de succesfee en voor betere selectie. Nu: {{ a.result or "nog niet gemeld" }}.</p>
+    <form method="post" action="{{ root }}/afspraken/{{ a.id }}/resultaat">
+      <label>Uitkomst<select name="resultaat"><option>plaatsgevonden</option><option>order</option><option>geen order</option><option>no-show</option></select></label>
+      <button class="secondary">Vastleggen</button>
+    </form>
+    {% if a.qa_note %}<p class="small">QA-notitie: {{ a.qa_note }}</p>{% endif %}
+    {% endif %}
+    {% if attempt %}
+    <h2 style="margin-top:16px">Gesprek</h2>
+    <div class="transcript">{% for t in attempt.transcript or [] %}<div class="turn {{ t.role }}"><small>{{ "AI" if t.role == "agent" else "Klant" }}</small>{{ t.message }}</div>{% endfor %}</div>
+    <p class="small"><a href="{{ root }}/gesprekken/{{ attempt.id }}">Volledig gesprek en payload</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

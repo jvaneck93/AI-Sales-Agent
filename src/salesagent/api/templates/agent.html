@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Agent en testset{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="card">
+    <h2>Testset (offline eval)</h2>
+    <p class="small">{{ cases|length }} situaties, uit opnames en handmatig. Harde criteria moeten 100% zijn: AI-melding in de eerste zin, opname gemeld, geen prijs/korting/levertijd, verzet met reikwijdtevraag en stoppen. De historische uitkomst zit er nooit in.</p>
+    <form method="post" action="{{ root }}/agent/eval"><button>Testset draaien</button></form>
+    <table style="min-width:0;margin-top:10px">
+      <tr><th>Run</th><th>Versie</th><th>Hard</th><th>Zacht</th></tr>
+      {% for r in runs %}<tr><td><a href="{{ root }}/agent/eval/{{ r.id }}">{{ r.created_at|dt }}</a></td><td>{{ r.agent_version }}</td>
+        <td><span class="badge {{ 'ok' if r.passed_hard else 'no' }}">{{ r.scores.hard_ok }}/{{ r.scores.hard_totaal }}</span></td><td>{{ r.scores.zacht_ok }}/{{ r.scores.zacht_totaal }}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted">Nog niet gedraaid.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h2>Gegevens die het platform na elk gesprek teruggeeft</h2>
+    <ul class="small">{% for k, v in data_collection.items() %}<li><code>{{ k }}</code>: {{ v }}</li>{% endfor %}</ul>
+    <p class="small muted">Stel deze in als Data Collection in ElevenLabs. Ontbreken ze, dan classificeert de nabewerking op regels.</p>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Bezwaarbibliotheek</h2>
+  <div class="scroll"><table>
+    <tr><th>Bezwaar</th><th>Herkenning</th><th>Goedgekeurde reactie</th><th>Opgeven als</th><th>Bewijs uit opnames</th></tr>
+    {% for e in library %}<tr class="{{ '' if e.approved else 'muted-row' }}"><td>{{ e.label }}{% if not e.approved %} <span class="badge warn">voorstel</span>{% endif %}</td>
+      <td class="small">{{ e.triggers[:4]|join(", ") }}</td><td class="small">{{ e.responses[0] if e.responses else "" }}</td><td class="small">{{ e.give_up_when }}</td>
+      <td class="small">{{ "n=" ~ e.evidence.n if e.evidence and e.evidence.n else "" }}</td></tr>{% endfor %}
+  </table></div>
+</div>
+<div class="card"><h2>Systeemprompt voor ElevenLabs (gegenereerd)</h2>
+<p class="small">Uit dezelfde regels als de sandbox-agent, plus de goedgekeurde bibliotheek en het laatste playbook. Kopieer naar de agent in ElevenLabs na een geslaagde testset.</p>
+<details><summary>Toon prompt</summary><pre>{{ prompt }}</pre></details></div>
+{% endblock %}

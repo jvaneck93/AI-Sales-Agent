@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Uitgaande mail{% endblock %}
+{% block content %}
+<p class="small muted">Sandbox: berichten worden hier bewaard en niet verstuurd. Koppel later de mail of het CRM van de klant.</p>
+{% for msg in rows %}
+<div class="card"><p><span class="badge">{{ msg.kind }}</span> <b>{{ msg.subject }}</b></p><p class="small muted">Aan {{ msg.to }} · {{ msg.created_at|dt }}</p>
+<details><summary>Inhoud</summary><div class="md">{{ msg.body|md }}</div></details></div>
+{% else %}<p class="muted">Nog geen berichten. Ze ontstaan zodra QA een afspraak goedkeurt.</p>{% endfor %}
+{% endblock %}

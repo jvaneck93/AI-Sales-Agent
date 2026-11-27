@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}QA{% endblock %}
+{% block content %}
+<div class="stats">
+  {{ m.tile(pending|length, "afspraken te controleren") }}
+  {{ m.tile(sample|length, "steekproefgesprekken open") }}
+  {{ m.tile("%.1f"|format(stats.qa_minutes) , "QA-minuten totaal") }}
+  {{ m.tile("%.1f"|format(stats.qa_minutes_per_appointment) if stats.qa_minutes_per_appointment else "–", "QA-minuten per afspraak") }}
+</div>
+<div class="grid">
+  <div class="card"><h2>Afspraken (elke afspraak wordt gecontroleerd)</h2>
+    {% for a in pending %}<p><a href="{{ root }}/afspraken/{{ a.id }}">{{ a.company.name }}</a> <span class="small muted">{{ a.starts_at|dt }} · {{ a.account_manager }}</span></p>
+    {% else %}<p class="muted">Niets te controleren.</p>{% endfor %}</div>
+  <div class="card"><h2>Steekproef overige gesprekken (10%)</h2>
+    {% for c in sample %}<p><a href="{{ root }}/gesprekken/{{ c.id }}">Gesprek {{ c.id }}</a> {{ m.outcome_badge(c.outcome) }}</p>
+    {% else %}<p class="muted">Geen open steekproef.</p>{% endfor %}</div>
+  <div class="card"><h2>Gevonden fouten</h2>
+    {% for c in errors %}<p><a href="{{ root }}/gesprekken/{{ c.id }}">Gesprek {{ c.id }}</a> <span class="small">{{ c.analysis.qa_note if c.analysis else "" }}</span></p>
+    {% else %}<p class="muted">Geen. Een fout wordt een nieuwe testcase en een playbook-aanpassing.</p>{% endfor %}</div>
+</div>
+{% endblock %}

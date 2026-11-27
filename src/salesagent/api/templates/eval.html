@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Eval-run{% endblock %}
+{% block content %}
+<h2>Testset {{ run.created_at|dt }} · {{ run.agent_version }} <span class="badge {{ 'ok' if run.passed_hard else 'no' }}">{{ "hard geslaagd" if run.passed_hard else "hard NIET geslaagd" }}</span></h2>
+{% for r in run.results %}
+<div class="card">
+  <p><b>{{ r.case }}</b> <span class="small muted">{{ r.categorie }} · uitkomst agent: {{ r.uitkomst_agent }}</span>
+  {% for k, v in r.hard.items() %}<span class="badge {{ 'ok' if v else 'no' }}">{{ k }}</span> {% endfor %}
+  {% for k, v in r.zacht.items() %}<span class="badge {{ 'ok' if v else 'warn' }}">{{ k }}</span> {% endfor %}</p>
+  <details><summary>Wat de agent zei</summary><ol class="small">{% for t in r.agent %}<li>{{ t }}</li>{% endfor %}</ol></details>
+</div>
+{% endfor %}
+{% endblock %}

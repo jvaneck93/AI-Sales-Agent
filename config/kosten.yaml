@@ -1,0 +1,9 @@
+# Kostenmodel. Alle bedragen in euro. Alles hier is een [AANNAME] tot het gemeten is.
+# Bron uitgangspunten: blauwdruk, business case 4 merken x 2 rondes.
+data_per_adres: 1.23          # RDC/KvK-data per nagebeld adres
+bellen_per_minuut: 0.20       # voice-platform + NL-telefonie, all-in
+qa_uurtarief: 35.0            # menselijke QA
+qa_minuten_per_afspraak: 4    # elk afspraaktranscript wordt gecontroleerd
+qa_steekproef: 0.10           # aandeel overige gesprekken dat wordt nageluisterd
+qa_minuten_per_steekproef: 2
+benchmark_kosten_per_adres: 11.0   # huidig menselijk callcenter, all-in
